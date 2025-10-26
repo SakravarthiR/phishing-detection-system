@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Subdomain Scanner - Enterprise Grade Discovery</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="scanner-styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body class="scanner-body">
+    <script src="auth.js"></script>
+    <div class="parallax-bg-scanner"></div>
+    <div class="scanner-container">
+        <!-- Main Content Grid -->
+        <div class="scanner-grid">
+            <!-- Left Column: Main Scanner -->
+            <div class="scanner-main">
+                <!-- Hero Section -->
+                <section class="hero-section">
+                    <!-- Logout Button (Top Right) -->
+                    <div class="logout-wrapper-scanner">
+                        <button onclick="logout()" class="logout-btn-scanner" title="Logout">
+                            <span>[EXIT]</span>
+                        </button>
+                    </div>
+                    
+                    <div class="hero-content">
+                        <!-- Back Button (Centered Above Title) -->
+                        <div class="back-button-wrapper">
+                            <a href="index.html" class="back-to-phishing-btn">
+                                <span class="btn-icon">[HOME]</span>
+                                <span class="btn-text">Back to Phishing Detector</span>
+                            </a>
+                        </div>
+                        
+                        <h1 class="hero-title">
+                            Advanced Subdomain Discovery
+                        </h1>
+                        <p class="hero-description">
+                            Leverage multiple discovery techniques including Certificate Transparency logs, 
+                            DNS brute-forcing, and IP geolocation to uncover hidden subdomains instantly.
+                        </p>
+            </div>
+        </section>
+
+        <!-- Scanner Input Section -->
+        <section class="scanner-input-section">
+            <div class="input-card">
+                <div class="input-header">
+                    <h2 class="input-title">Start Your Scan</h2>
+                    <p class="input-subtitle">Enter a domain to discover all its subdomains</p>
+                </div>
+                <div class="scanner-input-group">
+                    <div class="input-wrapper">
+                       
+                        <input 
+                            type="text" 
+                            id="domainInput" 
+                            class="scanner-input"
+                            placeholder="example.com"
+                        />
+                    </div>
+                    <button id="scanBtn" class="scanner-btn primary">
+                        <span class="btn-icon">[>]</span>
+                        <span class="btn-text">Launch Scan</span>
+                        <span class="btn-spinner hidden">
+                            <span class="spinner-icon">[.]</span>
+                            Scanning...
+                        </span>
+                    </button>
+                </div>
+                <div class="input-hints">
+                    <div class="hint-item">
+                   
+                        <span>No need for http:// or www. prefix</span>
+                    </div>
+                    <div class="hint-item">
+                        <span>Average scan time: 3-10 seconds</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Section -->
+        <section id="loadingSection" class="loading-section hidden">
+            <div class="loading-card">
+                <div class="loading-animation">
+                    <div class="radar-scanner">
+                        <div class="radar-circle"></div>
+                        <div class="radar-circle"></div>
+                        <div class="radar-circle"></div>
+                        <div class="radar-sweep"></div>
+                    </div>
+                </div>
+                <h3 class="loading-title">Deep Scan in Progress</h3>
+                <p class="loading-subtitle">Analyzing domain infrastructure...</p>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                </div>
+
+                <div class="scanning-steps">
+                    <div class="scan-step active">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <div class="step-title">Certificate Transparency</div>
+                            <div class="step-description">Querying SSL certificate logs...</div>
+                        </div>
+                        <div class="step-status">[.]</div>
+                    </div>
+                    <div class="scan-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <div class="step-title">DNS Enumeration</div>
+                            <div class="step-description">Brute-forcing common subdomains...</div>
+                        </div>
+                        <div class="step-status">[.]</div>
+                    </div>
+                    <div class="scan-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <div class="step-title">IP Resolution</div>
+                            <div class="step-description">Resolving DNS records...</div>
+                        </div>
+                        <div class="step-status">[.]</div>
+                    </div>
+                    <div class="scan-step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <div class="step-title">Security Analysis</div>
+                            <div class="step-description">Detecting Cloudflare & WAF...</div>
+                        </div>
+                        <div class="step-status">[.]</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error Section -->
+        <section id="errorSection" class="error-section hidden">
+            <div class="error-card">
+                <div class="error-icon-wrapper">
+                    <div class="error-icon">[!]</div>
+                </div>
+                <h3 class="error-title">Scan Failed</h3>
+                <p id="errorMessage" class="error-message"></p>
+                <div class="error-actions">
+                    <button onclick="location.reload()" class="retry-btn">
+                        <span class="btn-icon">[R]</span>
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section hidden">
+            <!-- Success Header -->
+            <div class="results-header">
+                <div class="success-badge">
+                    <span class="success-icon">[OK]</span>
+                    <span>Scan Complete</span>
+                </div>
+                <h2 class="results-title">Discovery Report</h2>
+            </div>
+
+            <!-- Summary Cards -->
+            <div class="summary-grid">
+                <div class="metric-card primary">
+                    <div class="metric-header">
+                        <div class="metric-icon">[*]</div>
+                        <span class="metric-trend up">Active</span>
+                    </div>
+                    <div class="metric-body">
+                        <div class="metric-label">Target Domain</div>
+                        <div class="metric-value" id="domainName">--</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card success">
+                    <div class="metric-header">
+                        <div class="metric-icon">[+]</div>
+                        <span class="metric-trend up">Discovered</span>
+                    </div>
+                    <div class="metric-body">
+                        <div class="metric-label">Subdomains Found</div>
+                        <div class="metric-value" id="subdomainCount">--</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card info">
+                    <div class="metric-header">
+                        <div class="metric-icon">[NET]</div>
+                        <span class="metric-trend">Primary</span>
+                    </div>
+                    <div class="metric-body">
+                        <div class="metric-label">Most Used IP</div>
+                        <div class="metric-value small" id="mostUsedIp">--</div>
+                        <div class="metric-subtext" id="mostUsedCount">--</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card warning">
+                    <div class="metric-header">
+                        <div class="metric-icon">[>]</div>
+                        <span class="metric-trend">Fast</span>
+                    </div>
+                    <div class="metric-body">
+                        <div class="metric-label">Scan Duration</div>
+                        <div class="metric-value" id="scanTime">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Overview -->
+            <div class="stats-overview">
+                <div class="stats-header">
+                    <h3 class="stats-title">
+                        <span class="title-icon">[DATA]</span>
+                        Scan Analytics
+                    </h3>
+                </div>
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon">[D]</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Scan Date</div>
+                            <div class="stat-value" id="scanDate">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">[W]</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Unique IP Addresses</div>
+                            <div class="stat-value" id="uniqueIps">--</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">[SEC]</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Cloudflare Protected</div>
+                            <div class="stat-value" id="cloudflareCount">--</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IP Distribution -->
+            <div class="ip-distribution-section">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <span class="title-icon">[IP]</span>
+                        IP Address Distribution
+                    </h3>
+                    <span class="section-badge">Top 10</span>
+                </div>
+                <div id="ipStatsList" class="ip-distribution-list"></div>
+            </div>
+
+            <!-- Subdomains Table -->
+            <div class="data-table-section">
+                <div class="data-table-header">
+                    <div class="table-title-group">
+                        <h3 class="table-title">
+                            <span class="title-icon">[+]</span>
+                            Discovered Subdomains
+                        </h3>
+                        <span class="table-count" id="tableCount">0 results</span>
+                    </div>
+                    <button id="exportBtn" class="export-btn">
+                        <span class="btn-icon">[CSV]</span>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+                
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="col-number">#</th>
+                                <th class="col-subdomain">Subdomain</th>
+                                <th class="col-full">Full Domain Name</th>
+                                <th class="col-ip">IP Address</th>
+                                <th class="col-cf">Protection</th>
+                            </tr>
+                        </thead>
+                        <tbody id="subdomainTableBody">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Scan History Section (Below Results) -->
+        <aside class="scan-history-sidebar">
+            <div class="history-header">
+                <h3 class="history-title">
+                    <span class="history-icon">[H]</span>
+                    Recent Scans
+                </h3>
+                <button id="clearHistoryBtn" class="clear-history-btn" title="Clear History">
+                    <span>[X]</span>
+                </button>
+            </div>
+
+            <div id="historyList" class="history-list">
+                <div class="history-empty">
+                    <div class="empty-icon">[?]</div>
+                    <p class="empty-text">No scan history yet</p>
+                    <p class="empty-hint">Start scanning domains to see history</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Footer -->
+        <footer class="scanner-footer">
+            <div class="footer-content">
+                <p class="footer-text">
+                    <span class="footer-icon">[#]</span>
+                    <strong>SecurityScanner PRO</strong> - Enterprise-grade subdomain discovery
+                </p>
+                <p class="footer-meta">
+                    Powered by Certificate Transparency, DNS Enumeration & Advanced IP Analysis
+                </p>
+            </div>
+        </footer>
+            </div>
+            <!-- End of scanner-main -->
+        </div>
+        <!-- End of scanner-grid -->
+    </div>
+
+    <script src="scanner.js"></script>
+</body>
+</html>

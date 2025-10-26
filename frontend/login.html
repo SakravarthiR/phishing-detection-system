@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Phishing Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="login-styles.css">
+</head>
+<body>
+    <div class="parallax-bg-login"></div>
+    
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="lock-icon">[#]</div>
+                <h1>SYSTEM ACCESS</h1>
+                <p class="subtitle">AUTHENTICATION REQUIRED</p>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">USERNAME</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        class="login-input"
+                        placeholder="Enter username"
+                        required
+                        autocomplete="username"
+                    />
+                </div>
+
+                <div class="form-group">
+                    <label for="password">PASSWORD</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="login-input"
+                        placeholder="Enter password"
+                        required
+                        autocomplete="current-password"
+                    />
+                </div>
+
+                <div id="errorMessage" class="error-message hidden"></div>
+
+                <button type="submit" id="loginBtn" class="login-btn">
+                    <span class="btn-icon">[>]</span>
+                    <span class="btn-text">ACCESS SYSTEM</span>
+                    <span class="btn-spinner hidden">
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                        <span class="dot"></span>
+                    </span>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p class="security-notice">[*] SECURE CONNECTION ESTABLISHED</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-quote">
+        "As long as someone's still breathing, the fight isn't over"
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>

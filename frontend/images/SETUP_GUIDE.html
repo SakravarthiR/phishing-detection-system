@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Image Setup Guide</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0e0a;
+            color: #00ff41;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+        h1 { color: #00d9ff; border-bottom: 2px solid #00ff41; padding-bottom: 10px; }
+        h2 { color: #00ff41; margin-top: 30px; }
+        .code {
+            background: #0f1410;
+            border: 1px solid #00ff41;
+            padding: 15px;
+            margin: 15px 0;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .step {
+            background: rgba(0, 255, 65, 0.1);
+            border-left: 3px solid #00ff41;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .tip {
+            background: rgba(0, 217, 255, 0.1);
+            border-left: 3px solid #00d9ff;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        a { color: #00d9ff; }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Background Image Setup Guide</h1>
+    
+    <h2>📁 Step 1: Add Your Images</h2>
+    <div class="step">
+        <strong>Location:</strong> <code>frontend/images/</code><br>
+        <strong>Supported formats:</strong> JPG, PNG, WebP, SVG<br>
+        <strong>Recommended size:</strong> 1920x1080px or larger<br>
+        <strong>Keep file size under:</strong> 500KB for faster loading
+    </div>
+
+    <h2>🔧 Step 2: Update CSS Files</h2>
+    
+    <h3>For Login Page (login-styles.css):</h3>
+    <div class="step">
+        Find the <code>.parallax-bg-login</code> section (around line 44) and update:
+    </div>
+    <div class="code">
+.parallax-bg-login {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;background:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;url('images/your-login-background.jpg') center/cover no-repeat;<br>
+}
+    </div>
+
+    <h3>For Main Page (styles.css):</h3>
+    <div class="step">
+        Find the <code>.parallax-bg</code> section (around line 44) and update:
+    </div>
+    <div class="code">
+.parallax-bg {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;background:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;url('images/your-main-background.jpg') center/cover no-repeat;<br>
+}
+    </div>
+
+    <h3>For Scanner Page (scanner-styles.css):</h3>
+    <div class="step">
+        Find the <code>.parallax-bg-scanner</code> section (around line 21) and update:
+    </div>
+    <div class="code">
+.parallax-bg-scanner {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;background:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)),<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;url('images/your-scanner-background.jpg') center/cover no-repeat;<br>
+}
+    </div>
+
+    <h2>🎨 Adjust Overlay Darkness</h2>
+    <div class="tip">
+        The <code>linear-gradient</code> creates a dark overlay. Adjust the opacity:<br><br>
+        • <code>rgba(0, 0, 0, 0.8)</code> = 80% dark (darker text visibility)<br>
+        • <code>rgba(0, 0, 0, 0.6)</code> = 60% dark (lighter, more image visible)<br>
+        • <code>rgba(0, 0, 0, 0.9)</code> = 90% dark (very dark, best text readability)
+    </div>
+
+    <h2>💡 Tips for Best Results</h2>
+    <div class="tip">
+        ✅ Use dark-themed or tech-aesthetic images<br>
+        ✅ Ensure text remains readable (use darker overlays if needed)<br>
+        ✅ Compress images before using (use tinypng.com or similar)<br>
+        ✅ Test on different screen sizes<br>
+        ✅ Choose images that complement the green/cyan color scheme
+    </div>
+
+    <h2>🔍 Suggested Image Sources</h2>
+    <div class="step">
+        • <a href="https://unsplash.com" target="_blank">Unsplash</a> - Free high-quality images<br>
+        • <a href="https://pexels.com" target="_blank">Pexels</a> - Free stock photos<br>
+        • <a href="https://pixabay.com" target="_blank">Pixabay</a> - Free images and videos<br><br>
+        
+        <strong>Search terms:</strong> "cyberpunk", "matrix code", "tech background", 
+        "hacker", "neon city", "digital", "circuit board"
+    </div>
+
+    <h2>🔄 Refresh After Changes</h2>
+    <div class="tip">
+        After updating CSS files:<br>
+        1. Save the CSS file<br>
+        2. Refresh your browser (Ctrl + F5 to clear cache)<br>
+        3. Check if the background loaded correctly
+    </div>
+
+    <h2>📋 Example File Structure</h2>
+    <div class="code">
+frontend/<br>
+├── images/<br>
+│   ├── login-background.jpg<br>
+│   ├── main-background.jpg<br>
+│   ├── scanner-background.jpg<br>
+│   ├── README.md<br>
+│   └── BACKGROUND_CONFIG.css<br>
+├── login-styles.css<br>
+├── styles.css<br>
+└── scanner-styles.css
+    </div>
+
+    <p style="margin-top: 50px; text-align: center; color: #00d9ff;">
+        🎉 Your custom backgrounds are ready to use!
+    </p>
+</body>
+</html>

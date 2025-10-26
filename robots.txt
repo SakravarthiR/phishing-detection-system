@@ -1,0 +1,16 @@
+# Block all robots from sensitive paths
+User-agent: *
+Disallow: /backend/
+Disallow: /.venv/
+Disallow: /.git/
+Disallow: /config/
+Disallow: /logs/
+Disallow: /.env
+Disallow: /credentials.json
+
+# Allow public pages
+Allow: /frontend/
+Allow: /
+
+# Sitemap location (create this later)
+Sitemap: https://yourdomain.com/sitemap.xml

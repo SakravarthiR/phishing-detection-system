@@ -1,0 +1,85 @@
+/* ==========================================
+   BACKGROUND IMAGE CONFIGURATION
+   ========================================== */
+
+/*
+   INSTRUCTIONS:
+   1. Place your background images in the 'images' folder
+   2. Copy the appropriate code snippet below
+   3. Paste it into the corresponding CSS file
+   4. Adjust the opacity in linear-gradient if needed
+*/
+
+/* ==========================================
+   LOGIN PAGE (login-styles.css)
+   ========================================== */
+
+/* 
+Find the .parallax-bg-login section (around line 44) and replace the background property:
+
+.parallax-bg-login {
+    background: 
+        linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)),
+        url('images/login-background.jpg') center/cover no-repeat;
+}
+
+Opacity Guide:
+- rgba(0, 0, 0, 0.8) = 80% dark overlay (recommended)
+- rgba(0, 0, 0, 0.6) = 60% dark overlay (lighter)
+- rgba(0, 0, 0, 0.9) = 90% dark overlay (darker)
+*/
+
+
+/* ==========================================
+   MAIN PAGE (styles.css)
+   ========================================== */
+
+/* 
+Find the .parallax-bg section (around line 44) and replace the background property:
+
+.parallax-bg {
+    background: 
+        linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+        url('images/main-background.jpg') center/cover no-repeat;
+}
+*/
+
+
+/* ==========================================
+   SCANNER PAGE (scanner-styles.css)
+   ========================================== */
+
+/* 
+Find the .parallax-bg-scanner section (around line 21) and replace the background property:
+
+.parallax-bg-scanner {
+    background: 
+        linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)),
+        url('images/scanner-background.jpg') center/cover no-repeat;
+}
+*/
+
+
+/* ==========================================
+   TIPS FOR BEST RESULTS
+   ========================================== */
+
+/*
+1. Image Size: Use 1920x1080 or larger for best quality
+2. File Format: JPG for photos, PNG for graphics
+3. File Size: Keep under 500KB for faster loading
+4. Image Style: Dark/tech-themed images work best
+5. Contrast: Ensure text remains readable
+
+Good image sources:
+- Unsplash.com (free high-quality images)
+- Pexels.com (free stock photos)
+- Wallpaper sites (search "tech", "hacker", "cyberpunk")
+
+Suggested search terms:
+- "cyberpunk city"
+- "matrix code"
+- "tech background"
+- "hacker aesthetic"
+- "neon city night"
+*/

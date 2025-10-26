@@ -1,0 +1,32 @@
+[Unit]
+Description=Phishing Detector API Service
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/phishing-detector/backend
+Environment="PATH=/var/www/phishing-detector/.venv/bin"
+ExecStart=/var/www/phishing-detector/.venv/bin/gunicorn \
+    --config gunicorn_config.py \
+    secure_api:app
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/phishing-detector
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=phishing-detector
+
+[Install]
+WantedBy=multi-user.target
