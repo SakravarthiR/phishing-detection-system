@@ -34,10 +34,19 @@ proc_name = "phishing-detector-api"
 
 # Server mechanics
 daemon = False
-pidfile = "/var/run/phishing-detector.pid"
+pidfile = None  # Disable pidfile for Render (no permission to /var/run)
 user = None  # Set to your user in production
 group = None  # Set to your group in production
 umask = 0
+
+# Temporary directory configuration (fix for Render permission denied)
+# Use /tmp instead of /var/run which may have restricted permissions
+import tempfile
+tempdir = "/tmp"
+if not os.path.exists(tempdir):
+    tempdir = os.environ.get("TMPDIR", "/tmp")
+# Set Python's tempdir for gunicorn operations
+os.environ["TMPDIR"] = tempdir
 
 # Security
 limit_request_line = 4096
