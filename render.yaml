@@ -1,4 +1,18 @@
 services:
+  # Frontend Static Site (PRIMARY)
+  - type: web
+    name: phishing-detector-frontend
+    env: static
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: echo "No build needed for static site"
+    staticPublishPath: ./frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
   # Backend API Service
   - type: web
     name: phishing-detector-api
@@ -33,20 +47,6 @@ services:
       - key: PHISHTANK_CACHE_HOURS
         value: 6
     healthCheckPath: /api/health
-
-  # Frontend Static Site
-  - type: web
-    name: phishing-detector-frontend
-    env: static
-    region: oregon
-    plan: free
-    branch: main
-    buildCommand: echo "No build needed for static site"
-    staticPublishPath: ./frontend
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
     headers:
       - path: /*
         name: X-Frame-Options
