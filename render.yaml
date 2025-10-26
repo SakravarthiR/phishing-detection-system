@@ -1,0 +1,59 @@
+services:
+  # Backend API Service
+  - type: web
+    name: phishing-detector-api
+    env: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn --config gunicorn_config.py secure_api:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: False
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: 5000
+      - key: API_BASE_URL
+        generateValue: true
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: SESSION_TIMEOUT_MINUTES
+        value: 60
+      - key: MAX_REQUESTS_PER_MINUTE
+        value: 100
+      - key: PHISHTANK_CACHE_HOURS
+        value: 6
+    healthCheckPath: /api/health
+
+  # Frontend Static Site
+  - type: web
+    name: phishing-detector-frontend
+    env: static
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: echo "No build needed for static site"
+    staticPublishPath: ./frontend
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin

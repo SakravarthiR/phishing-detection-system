@@ -6,7 +6,9 @@ import multiprocessing
 import os
 
 # Server socket
-bind = "0.0.0.0:5000"
+# Use PORT from environment (Render provides this) or default to 5000
+port = os.environ.get("PORT", "5000")
+bind = f"0.0.0.0:{port}"
 backlog = 2048
 
 # Worker processes
@@ -21,8 +23,9 @@ max_requests = 1000
 max_requests_jitter = 50
 
 # Logging
-accesslog = "/var/log/phishing-detector/access.log"
-errorlog = "/var/log/phishing-detector/error.log"
+# On Render, logs go to stdout/stderr (no need for log files)
+accesslog = "-"  # stdout
+errorlog = "-"   # stderr
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
