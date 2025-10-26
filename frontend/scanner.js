@@ -20,7 +20,7 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // Configuration
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://phishingdetector.me';
 const REQUEST_TIMEOUT = 120000; // 2 minutes for subdomain scanning
 const USE_SECURE_API = true; // Set to true to use secure_api.py (JWT auth required)
 
