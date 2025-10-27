@@ -20,7 +20,8 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // Configuration
-const API_BASE_URL = 'https://api.phishingdetector.systems';
+// Use direct Render URL for backend API (more reliable than DNS subdomain)
+const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
 const REQUEST_TIMEOUT = 120000; // 2 minutes for subdomain scanning
 const USE_SECURE_API = true; // Set to true to use secure_api.py (JWT auth required)
 

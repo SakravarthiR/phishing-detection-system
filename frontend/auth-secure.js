@@ -21,7 +21,8 @@ document.addEventListener('mousemove', (e) => {
 
 // Configuration
 const USE_SECURE_API = true; // Set to true to use secure backend JWT authentication
-const API_BASE_URL = 'https://api.phishingdetector.systems';
+// Use direct Render URL for backend API (more reliable than DNS subdomain)
+const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
 
 // Local credentials (fallback if secure API is disabled) - DISABLED FOR SECURITY
 const VALID_USERNAME = 'admin';
