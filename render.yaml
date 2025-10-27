@@ -8,9 +8,12 @@ services:
     branch: main
     buildCommand: echo "No build needed for static site"
     staticPublishPath: ./frontend
-    routes:
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
       - type: rewrite
-        source: /*
+        source: /.*
         destination: /index.html
 
   # Backend API Service
