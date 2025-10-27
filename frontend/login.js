@@ -21,7 +21,7 @@ document.addEventListener('mousemove', (e) => {
 
 // Configuration
 const USE_SECURE_API = true; // Set to true to use secure backend JWT authentication
-const API_BASE_URL = 'https://api.phishingdetector.me';
+const API_BASE_URL = 'https://api.phishingdetector.systems';
 
 // Local credentials (fallback if secure API is disabled) - DISABLED FOR SECURITY
 const VALID_USERNAME = 'admin';
