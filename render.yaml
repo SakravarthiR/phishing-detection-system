@@ -46,7 +46,7 @@ services:
         value: 100
       - key: PHISHTANK_CACHE_HOURS
         value: 6
-    healthCheckPath: /api/health
+    healthCheckPath: /health
     headers:
       - path: /*
         name: X-Frame-Options

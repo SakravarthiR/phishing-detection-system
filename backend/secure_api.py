@@ -83,6 +83,7 @@ limiter = Limiter(
 # Global model variable
 model = None
 model_loaded = False
+# Use absolute path for model file - works both locally and on Render
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'phish_model.pkl')
 
 
