@@ -21,14 +21,28 @@ let domainFeatures, advancedFeatures;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Check if user is authenticated
-    if (!checkAuthentication()) {
-        window.location.href = 'secure-auth-portal.html';
-        return;
+    try {
+        // Check if user is authenticated - if not, redirect to login
+        const hasAuth = checkAuthentication();
+        console.log('🔐 Authentication check:', hasAuth ? 'PASSED' : 'FAILED');
+        
+        if (!hasAuth) {
+            console.log('⚠️ Not authenticated, redirecting to login...');
+            window.location.href = 'secure-auth-portal.html';
+            return;
+        }
+        
+        // Initialize the app
+        console.log('✅ Initializing URL checker app...');
+        init();
+        setupParallax();
+        console.log('✅ App initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ App initialization error:', error);
+        // Show error to user
+        alert('Error initializing app: ' + error.message);
     }
-    
-    init();
-    setupParallax();
 });
 
 /**
@@ -56,74 +70,109 @@ function checkAuthentication() {
 }
 
 function init() {
-    // Get DOM elements
-    urlInput = document.getElementById('urlInput');
-    checkBtn = document.getElementById('checkBtn');
-    btnText = document.getElementById('btnText');
-    btnSpinner = document.getElementById('btnSpinner');
-    
-    resultsSection = document.getElementById('resultsSection');
-    resultsCard = document.getElementById('resultsCard');
-    errorSection = document.getElementById('errorSection');
-    
-    resultHeader = document.getElementById('resultHeader');
-    resultIcon = document.getElementById('resultIcon');
-    resultLabel = document.querySelector('#resultLabel');
-    resultUrl = document.getElementById('resultUrl');
-    
-    resultProbability = document.getElementById('resultProbability');
-    resultClassification = document.getElementById('resultClassification');
-    progressBar = document.getElementById('progressBar');
-    resultReason = document.getElementById('resultReason');
-    threatIndicators = document.getElementById('threatIndicators');
-    
-    errorMessage = document.getElementById('errorMessage');
-    dismissError = document.getElementById('dismissError');
-    
-    advancedSubdomainTableBody = document.getElementById('advancedSubdomainTableBody');
-    securityFeatures = document.getElementById('securityFeatures');
-    structureFeatures = document.getElementById('structureFeatures');
-    characterFeatures = document.getElementById('characterFeatures');
-    domainFeatures = document.getElementById('domainFeatures');
-    advancedFeatures = document.getElementById('advancedFeatures');
-    
-    // Event listeners
-    checkBtn.addEventListener('click', checkURL);
-    urlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') checkURL();
-    });
-    dismissError.addEventListener('click', hideError);
+    try {
+        // Get DOM elements
+        urlInput = document.getElementById('urlInput');
+        checkBtn = document.getElementById('checkBtn');
+        btnText = document.getElementById('btnText');
+        btnSpinner = document.getElementById('btnSpinner');
+        
+        resultsSection = document.getElementById('resultsSection');
+        resultsCard = document.getElementById('resultsCard');
+        errorSection = document.getElementById('errorSection');
+        
+        resultHeader = document.getElementById('resultHeader');
+        resultIcon = document.getElementById('resultIcon');
+        resultLabel = document.querySelector('#resultLabel');
+        resultUrl = document.getElementById('resultUrl');
+        
+        resultProbability = document.getElementById('resultProbability');
+        resultClassification = document.getElementById('resultClassification');
+        progressBar = document.getElementById('progressBar');
+        resultReason = document.getElementById('resultReason');
+        threatIndicators = document.getElementById('threatIndicators');
+        
+        errorMessage = document.getElementById('errorMessage');
+        dismissError = document.getElementById('dismissError');
+        
+        advancedSubdomainTableBody = document.getElementById('advancedSubdomainTableBody');
+        securityFeatures = document.getElementById('securityFeatures');
+        structureFeatures = document.getElementById('structureFeatures');
+        characterFeatures = document.getElementById('characterFeatures');
+        domainFeatures = document.getElementById('domainFeatures');
+        advancedFeatures = document.getElementById('advancedFeatures');
+        
+        // Validate critical elements
+        if (!urlInput || !checkBtn || !resultsSection || !errorSection) {
+            throw new Error('Critical DOM elements not found');
+        }
+        
+        console.log('✅ All DOM elements loaded successfully');
+        
+        // Event listeners
+        checkBtn.addEventListener('click', checkURL);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkURL();
+        });
+        if (dismissError) {
+            dismissError.addEventListener('click', hideError);
+        }
+        
+        console.log('✅ Event listeners attached');
+        
+    } catch (error) {
+        console.error('❌ Init error:', error);
+        throw error;
+    }
 }
 
 /**
  * Setup 3D Parallax Background Effect
  */
 function setupParallax() {
-    document.addEventListener('mousemove', (e) => {
+    try {
         const parallaxBg = document.querySelector('.parallax-bg');
-        if (!parallaxBg) return;
         
-        const mouseX = e.clientX / window.innerWidth;
-        const mouseY = e.clientY / window.innerHeight;
+        if (!parallaxBg) {
+            console.warn('⚠️ Parallax background element not found');
+            return;
+        }
         
-        const moveX = (mouseX - 0.5) * 20; // Adjust intensity
-        const moveY = (mouseY - 0.5) * 20;
+        console.log('✅ Parallax background found, setting up effect...');
         
-        parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.02)`;
-    });
+        document.addEventListener('mousemove', (e) => {
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            
+            const moveX = (mouseX - 0.5) * 20; // Adjust intensity
+            const moveY = (mouseY - 0.5) * 20;
+            
+            parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.02)`;
+        });
+        
+        console.log('✅ Parallax effect enabled');
+        
+    } catch (error) {
+        console.error('❌ Parallax setup error:', error);
+    }
 }
 
 /**
  * Check URL for phishing threats
  */
 async function checkURL() {
+    console.log('🔍 Check URL clicked');
+    
     const url = urlInput.value.trim();
     
     // Validate input
     if (!url) {
+        console.warn('⚠️ No URL provided');
         showError('Please enter a URL');
         return;
     }
+    
+    console.log('📝 URL entered:', url);
     
     // Add protocol if missing
     let fullURL = url;
@@ -131,25 +180,34 @@ async function checkURL() {
         fullURL = 'https://' + url;
     }
     
+    console.log('📨 Full URL to check:', fullURL);
+    
     // Show loading state
     showLoading();
     hideError();
     hideResults();
     
     try {
+        const token = getAuthToken();
+        console.log('🔐 Token status:', token ? 'Present (' + token.length + ' chars)' : 'Missing');
+        
         // Call backend API
+        console.log('🌐 Calling API:', `${API_BASE_URL}/predict`);
+        
         const response = await fetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${getAuthToken()}`
+                'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ url: fullURL }),
-            timeout: REQUEST_TIMEOUT
+            body: JSON.stringify({ url: fullURL })
         });
+        
+        console.log('📊 API Response status:', response.status);
         
         if (!response.ok) {
             if (response.status === 401) {
+                console.error('❌ Authentication failed (401)');
                 // Clear session and redirect to login
                 localStorage.removeItem(SESSION_KEY);
                 window.location.href = 'secure-auth-portal.html';
@@ -165,10 +223,12 @@ async function checkURL() {
                 // Response isn't JSON, use generic message
             }
             
+            console.error('❌ API Error:', errorMsg);
             throw new Error(errorMsg);
         }
         
         const data = await response.json();
+        console.log('✅ Analysis complete:', data);
         displayResults(data, fullURL);
         
     } catch (error) {
