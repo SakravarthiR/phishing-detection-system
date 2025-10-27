@@ -10,7 +10,7 @@ function checkAuthentication() {
     
     if (!session) {
         // No session found, redirect to login
-        window.location.href = 'login.html';
+        window.location.href = '/auth/login';
         return false;
     }
     
@@ -22,7 +22,7 @@ function checkAuthentication() {
         if (currentTime >= sessionData.expiresAt) {
             // Session expired
             localStorage.removeItem(SESSION_KEY);
-            window.location.href = 'login.html';
+            window.location.href = '/auth/login';
             return false;
         }
         
@@ -31,7 +31,7 @@ function checkAuthentication() {
     } catch (e) {
         // Invalid session data
         localStorage.removeItem(SESSION_KEY);
-        window.location.href = 'login.html';
+        window.location.href = '/auth/login';
         return false;
     }
 }
@@ -39,7 +39,7 @@ function checkAuthentication() {
 // Logout function
 function logout() {
     localStorage.removeItem(SESSION_KEY);
-    window.location.href = 'login.html';
+    window.location.href = '/auth/login';
 }
 
 // Run authentication check

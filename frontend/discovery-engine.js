@@ -154,7 +154,7 @@ async function scanSubdomains(domain) {
         // If auth fails, kick them back to login
         if (response.status === 401 && USE_SECURE_API) {
             console.warn('Token expired or invalid - back to login you go');
-            window.location.href = 'login.html';
+            window.location.href = '/auth/login';
             throw new Error('Authentication required');
         }
         
