@@ -12,9 +12,6 @@ services:
       - path: /*
         name: Cache-Control
         value: public, max-age=3600
-      - type: rewrite
-        source: /.*
-        destination: /index.html
 
   # Backend API Service
   - type: web
