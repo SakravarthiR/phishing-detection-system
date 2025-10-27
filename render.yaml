@@ -9,28 +9,8 @@ services:
     buildCommand: echo "No build needed for static site"
     staticPublishPath: ./frontend
     routes:
-      # Don't rewrite actual files (CSS, JS, images, etc)
       - type: rewrite
-        source: /images/*
-        destination: /images/:id
-      - type: rewrite
-        source: /**/*.css
-        destination: /**/*.css
-      - type: rewrite
-        source: /**/*.js
-        destination: /**/*.js
-      - type: rewrite
-        source: /**/*.jpg
-        destination: /**/*.jpg
-      - type: rewrite
-        source: /**/*.png
-        destination: /**/*.png
-      - type: rewrite
-        source: /**/*.gif
-        destination: /**/*.gif
-      # SPA routing - only for HTML pages
-      - type: rewrite
-        source: /^(?!.*\.(css|js|jpg|png|gif|jpeg|ico|woff|woff2|ttf)$).*$/
+        source: /*
         destination: /index.html
 
   # Backend API Service
