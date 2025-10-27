@@ -28,7 +28,7 @@ class CredentialsLoader:
     @staticmethod
     def load_credentials():
         """
-        Load credentials from external JSON file
+        Load credentials from external JSON file, then environment variables, then defaults
         Returns: Dictionary with all credentials
         """
         global _credentials_cache
@@ -36,31 +36,66 @@ class CredentialsLoader:
         # ALWAYS reload credentials from file (no caching for security)
         # This allows password changes without restarting the API
         
-        # Check if credentials file exists
-        if not os.path.exists(CREDENTIALS_PATH):
-            print(f"⚠️  WARNING: Credentials file not found at: {CREDENTIALS_PATH}")
-            print(f"   Using default credentials (INSECURE!)")
-            return CredentialsLoader._get_default_credentials()
+        # Try 1: Load from credentials file (preferred method)
+        if os.path.exists(CREDENTIALS_PATH):
+            try:
+                # Load credentials from JSON file
+                with open(CREDENTIALS_PATH, 'r', encoding='utf-8') as f:
+                    credentials = json.load(f)
+                
+                print(f"✅ Credentials loaded from file: {CREDENTIALS_PATH}")
+                return credentials
+                
+            except json.JSONDecodeError as e:
+                print(f"❌ ERROR: Invalid JSON in credentials file: {e}")
+                print(f"   Trying environment variables as fallback...")
+            except Exception as e:
+                print(f"❌ ERROR: Could not load credentials file: {e}")
+                print(f"   Trying environment variables as fallback...")
+        else:
+            print(f"⚠️  Credentials file not found at: {CREDENTIALS_PATH}")
+            print(f"   Trying environment variables as fallback...")
         
-        try:
-            # Load credentials from JSON file
-            with open(CREDENTIALS_PATH, 'r', encoding='utf-8') as f:
-                credentials = json.load(f)
-            
-            # Note: We intentionally don't cache to allow live credential updates
-            # print(f"✅ Credentials loaded from: {CREDENTIALS_PATH}")
-            
-            return credentials
-            
-        except json.JSONDecodeError as e:
-            print(f"❌ ERROR: Invalid JSON in credentials file: {e}")
-            print(f"   Using default credentials (INSECURE!)")
-            return CredentialsLoader._get_default_credentials()
-            
-        except Exception as e:
-            print(f"❌ ERROR: Could not load credentials: {e}")
-            print(f"   Using default credentials (INSECURE!)")
-            return CredentialsLoader._get_default_credentials()
+        # Try 2: Load from environment variables (fallback for Render/production)
+        env_admin_username = os.getenv('ADMIN_USERNAME')
+        env_admin_password_hash = os.getenv('ADMIN_PASSWORD_HASH')
+        env_secret_key = os.getenv('SECRET_KEY')
+        env_jwt_secret = os.getenv('JWT_SECRET_KEY')
+        
+        if env_admin_username and env_admin_password_hash and env_secret_key and env_jwt_secret:
+            print(f"✅ Credentials loaded from environment variables")
+            return {
+                "admin": {
+                    "username": env_admin_username,
+                    "password_hash": env_admin_password_hash,
+                    "role": "admin",
+                    "created_at": "2025-10-21T00:00:00Z"
+                },
+                "api_keys": {
+                    "secret_key": env_secret_key,
+                    "jwt_secret_key": env_jwt_secret
+                },
+                "security": {
+                    "session_timeout_minutes": 1440,
+                    "max_login_attempts": 5,
+                    "lockout_duration_minutes": 15,
+                    "allowed_origins": ["http://localhost:3000", "http://localhost:5500", "http://127.0.0.1:5500", "null"]
+                },
+                "advanced_security": {
+                    "whitelist_enabled": False,
+                    "whitelisted_ips": ["127.0.0.1", "::1"],
+                    "max_requests_per_second": 10,
+                    "max_requests_per_minute": 100,
+                    "max_concurrent_connections": 5,
+                    "auto_block_threshold": 3,
+                    "temporary_block_duration": 3600
+                }
+            }
+        
+        # Try 3: Use default credentials (last resort - INSECURE!)
+        print(f"⚠️  WARNING: Could not load credentials from file or environment variables")
+        print(f"   Using default/fallback credentials (INSECURE!)")
+        return CredentialsLoader._get_default_credentials()
     
     @staticmethod
     def _get_default_credentials():
