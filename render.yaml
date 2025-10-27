@@ -9,17 +9,6 @@ services:
     buildCommand: echo "No build needed for static site"
     staticPublishPath: ./frontend
     routes:
-      # Hide actual file names with URL rewriting
-      - type: rewrite
-        source: /auth/*
-        destination: /secure-auth-portal.html
-      - type: rewrite
-        source: /tools/*
-        destination: /advanced-discovery-engine.html
-      - type: rewrite
-        source: /dashboard/*
-        destination: /index.html
-      # Default catch-all for index
       - type: rewrite
         source: /*
         destination: /index.html
