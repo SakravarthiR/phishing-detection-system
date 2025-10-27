@@ -177,18 +177,30 @@ class AuthenticationManager:
         
         Args:
             password: Plain text password
-            password_hash: Hashed password
+            password_hash: Hashed password (string or bytes)
             
         Returns:
             bool: True if password matches, False otherwise
         """
         try:
-            return bcrypt.checkpw(
-                password.encode('utf-8'),
-                password_hash.encode('utf-8')
-            )
+            # Ensure password is bytes
+            if isinstance(password, str):
+                password = password.encode('utf-8')
+            
+            # Ensure password_hash is bytes
+            if isinstance(password_hash, str):
+                password_hash = password_hash.encode('utf-8')
+            
+            # Verify password
+            is_valid = bcrypt.checkpw(password, password_hash)
+            
+            if not is_valid:
+                logger.warning(f"Password verification failed for hash: {password_hash[:20]}...")
+            
+            return is_valid
         except Exception as e:
             logger.error(f"Password verification error: {str(e)}")
+            logger.error(f"Password type: {type(password)}, Hash type: {type(password_hash)}")
             return False
     
     @staticmethod
@@ -266,25 +278,33 @@ class AuthenticationManager:
         
         # Validate username
         if username != SecurityConfig.ADMIN_USERNAME:
-            logger.warning(f"Failed login attempt for user: {username}")
+            logger.warning(f"❌ Failed login attempt - Invalid username: {username}")
+            logger.warning(f"   Expected username: {SecurityConfig.ADMIN_USERNAME}")
             return False, None, "Invalid credentials"
         
         # Get password hash dynamically (fresh from file for live updates)
         try:
             password_hash = SecurityConfig.get_admin_password_hash_dynamic()
+            logger.info(f"✅ Password hash loaded successfully")
         except Exception as e:
-            logger.error(f"Error loading password hash: {e}")
+            logger.error(f"❌ Error loading password hash: {e}")
             return False, None, "Authentication system error"
         
         # Verify password
+        logger.info(f"🔐 Attempting password verification for user: {username}")
+        logger.debug(f"   Password length: {len(password)}, Hash length: {len(password_hash)}")
+        
         if not AuthenticationManager.verify_password(password, password_hash):
-            logger.warning(f"Failed password verification for user: {username}")
+            logger.warning(f"❌ Failed password verification for user: {username}")
             return False, None, "Invalid credentials"
+        
+        # Password verified successfully
+        logger.info(f"✅ User authenticated successfully: {username}")
         
         # Generate token
         token = AuthenticationManager.generate_token(username)
         
-        logger.info(f"User authenticated successfully: {username}")
+        logger.info(f"✅ Token generated for user: {username}")
         return True, token, None
 
 
