@@ -600,14 +600,18 @@ def predict():
             reason = f"Prediction: {'phishing' if label == 1 else 'legitimate'}"
         
         # Prepare response
+        # Ensure probability is in valid range (0-1)
+        safe_probability = max(0.0, min(1.0, probability))
+        confidence_percent = round(safe_probability * 100, 2)
+        
         response = {
             'url': sanitized_url,
             'label': label,
             'prediction': 'phishing' if label == 1 else 'legitimate',
-            'probability': round(probability, 4),  # Decimal: 0.7350
-            'confidence_percent': round(probability * 100, 2),  # Percentage: 73.50
+            'probability': round(safe_probability, 4),  # Decimal: 0.7350
+            'confidence_percent': confidence_percent,  # Percentage: 73.50 (capped at 100)
             'reason': reason,
-            'confidence_level': 'high' if probability > 0.8 or probability < 0.2 else 'medium',
+            'confidence_level': 'high' if safe_probability > 0.8 or safe_probability < 0.2 else 'medium',
             'phishtank_verified': False,  # Not in PhishTank database
             'features': features,
             'website_status': website_status,

@@ -248,6 +248,9 @@ function displayResults(data) {
     const isPhishing = data.label === 1 || data.prediction === 'phishing';
     const confidence = data.confidence_percent || Math.round((data.probability || 0) * 100);
     
+    // Ensure confidence is between 0-100
+    const displayConfidence = Math.max(0, Math.min(100, confidence));
+    
     // Update card appearance
     if (isPhishing) {
         resultHeader.style.borderLeftColor = '#ff0000';
@@ -266,43 +269,43 @@ function displayResults(data) {
     // Set result details
     resultUrl.textContent = data.url;
     resultUrl.title = data.url;
-    resultProbability.textContent = `${confidence}%`;
+    resultProbability.textContent = `${displayConfidence}%`;
     resultClassification.textContent = isPhishing ? 'PHISHING' : 'LEGITIMATE';
     
     // Set progress bar
-    progressBar.style.width = `${Math.min(confidence, 100)}%`;
+    progressBar.style.width = `${displayConfidence}%`;
     progressBar.style.backgroundColor = isPhishing ? '#ff0000' : '#00ff00';
     
     // Set reason
-    resultReason.textContent = data.reason || 'No additional analysis available';
+    resultReason.textContent = data.reason || 'Analysis completed. URL appears to be legitimate based on available intelligence.';
     
     // Clear threat indicators
     threatIndicators.innerHTML = '';
     
-    // Add PhishTank badge
-    if (data.phishtank_verified) {
+    // Add PhishTank badge if verified
+    if (data.phishtank_verified && data.phishtank_data) {
         const badge = document.createElement('div');
         badge.className = 'phishtank-badge';
-        badge.innerHTML = `[*] VERIFIED BY PHISHTANK - ID: ${data.phishtank_data.phish_id}`;
+        badge.innerHTML = `<strong>[PhishTank]</strong> Verified phishing site - ID: ${data.phishtank_data.phish_id}`;
         threatIndicators.appendChild(badge);
     }
     
-    // Add website status
+    // Add professional server status
     if (data.website_status) {
         const badge = document.createElement('div');
         badge.className = 'website-status-badge';
         const isReachable = data.website_status.is_reachable || data.website_status.is_live;
-        const statusCode = data.website_status.status_code || 'Unknown';
-        const status = isReachable ? `GREEN ONLINE (${statusCode})` : 'RED OFFLINE';
-        const icon = isReachable ? '[ONLINE]' : '[OFFLINE]';
-        badge.innerHTML = `[SERVER] ${icon} ${status}`;
+        const statusCode = data.website_status.status_code || '---';
+        const serverStatus = isReachable ? 'Online' : 'Offline';
+        badge.innerHTML = `<strong>Server Status:</strong> ${serverStatus} (HTTP ${statusCode})`;
         threatIndicators.appendChild(badge);
     }
     
     // Add confidence level badge
     const confBadge = document.createElement('div');
     confBadge.className = 'confidence-badge';
-    confBadge.textContent = `Confidence: ${data.confidence_level ? data.confidence_level.toUpperCase() : 'MEDIUM'}`;
+    const confLevel = data.confidence_level ? data.confidence_level.toUpperCase() : 'MEDIUM';
+    confBadge.textContent = `Confidence Level: ${confLevel}`;
     threatIndicators.appendChild(confBadge);
     
     // Display features
