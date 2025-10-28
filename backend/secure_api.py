@@ -614,15 +614,12 @@ def predict():
         display_confidence = safe_probability
         confidence_percent = round(display_confidence * 100, 2)
         
-        # For risk assessment, we need the raw phishing probability (not inverted)
-        # Invert it back if this is a legitimate site
-        if label == 0:
-            raw_phishing_prob = 1.0 - safe_probability
-        else:
-            raw_phishing_prob = safe_probability
+        # For risk assessment, pass the combined phishing probability directly
+        # The function will interpret it correctly based on the label
+        combined_phish_prob = features.get('combined_phish_prob', 0.5)
         
         # Get professional risk assessment
-        risk_assessment = get_professional_risk_assessment(raw_phishing_prob, label, features)
+        risk_assessment = get_professional_risk_assessment(combined_phish_prob, label, features)
         
         response = {
             'url': sanitized_url,

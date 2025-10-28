@@ -1146,83 +1146,80 @@ def get_professional_risk_assessment(probability: float, label: int, features_di
         Dictionary with risk_level, risk_description, recommendation, threat_score
     """
     
-    # For LEGITIMATE URLs, invert the probability
-    if label == 0:
-        confidence = 1.0 - probability
-    else:
-        confidence = probability
-    
-    confidence_percent = confidence * 100
+    # Probability directly represents phishing risk - use it as-is
+    # High probability = high phishing risk (dangerous)
+    # Low probability = low phishing risk (safe)
+    risk_percent = probability * 100
     
     # Define professional risk levels and messaging
-    if confidence_percent >= 95:
+    if risk_percent >= 95:
         return {
             'risk_level': 'CRITICAL',
             'risk_category': 'Extremely Dangerous',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '🚨 CRITICAL THREAT DETECTED - This site exhibits multiple characteristics of an advanced phishing or malware attack.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'CRITICAL THREAT DETECTED - This site exhibits multiple characteristics of an advanced phishing or malware attack.',
             'details': 'The URL contains several confirmed phishing indicators including suspicious keywords, unusual domain structure, and high-risk content patterns. This domain is highly likely to be fraudulent.',
-            'recommendation': '❌ DO NOT VISIT or enter credentials. Block this URL immediately.',
+            'recommendation': 'DO NOT VISIT or enter credentials. Block this URL immediately.',
             'actions': ['Report to anti-phishing service', 'Block domain in firewall', 'Alert your security team'],
             'color': '#ff0000'  # Red
         }
     
-    elif confidence_percent >= 85:
+    elif risk_percent >= 85:
         return {
             'risk_level': 'HIGH',
             'risk_category': 'Very High Risk',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '⚠️ HIGH RISK - This site shows strong indicators of phishing activity.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'HIGH RISK - This site shows strong indicators of phishing activity.',
             'details': 'Multiple suspicious patterns detected including potential credential harvesting mechanisms, suspicious domain naming, and risky content. Exercise extreme caution.',
-            'recommendation': '❌ Avoid visiting. Do not enter personal or financial information.',
+            'recommendation': 'Avoid visiting. Do not enter personal or financial information.',
             'actions': ['Verify with official source', 'Check with IT department', 'Use official app instead'],
             'color': '#ff6600'  # Orange
         }
     
-    elif confidence_percent >= 70:
+    elif risk_percent >= 70:
         return {
             'risk_level': 'MEDIUM-HIGH',
             'risk_category': 'Suspicious',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '⚠️ SUSPICIOUS - This site has characteristics that warrant caution.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'SUSPICIOUS - This site has characteristics that warrant caution.',
             'details': 'Several indicators suggest this may be a phishing attempt or fraudulent website. The domain structure, content patterns, or URL format contain warning signs.',
-            'recommendation': '⚠️ Use with caution. Verify legitimacy before entering sensitive information.',
+            'recommendation': 'Use with caution. Verify legitimacy before entering sensitive information.',
             'actions': ['Contact company directly using official channels', 'Look for security indicators', 'Check website SSL certificate'],
             'color': '#ffaa00'  # Dark orange
         }
     
-    elif confidence_percent >= 50:
+    elif risk_percent >= 50:
         return {
             'risk_level': 'MEDIUM',
             'risk_category': 'Moderate Risk',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '⚠️ MODERATE CAUTION - Some aspects of this site appear questionable.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'MODERATE CAUTION - Some aspects of this site appear questionable.',
             'details': 'The site contains mixed signals. While not definitively phishing, certain characteristics differ from standard legitimate websites. Further verification recommended.',
-            'recommendation': '⚠️ Proceed cautiously. Verify the site\'s legitimacy independently before sharing any data.',
+            'recommendation': 'Proceed cautiously. Verify the site\'s legitimacy independently before sharing any data.',
             'actions': ['Go to official website directly', 'Verify URL in browser address bar', 'Check SSL certificate details'],
             'color': '#ffcc00'  # Yellow
         }
     
-    elif confidence_percent >= 30:
+    elif risk_percent >= 30:
         return {
             'risk_level': 'LOW-MEDIUM',
             'risk_category': 'Low-Moderate Risk',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '✓ LIKELY LEGITIMATE - This site appears mostly trustworthy with minor concerns.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'LIKELY LEGITIMATE - This site appears mostly trustworthy with minor concerns.',
             'details': 'The site\'s characteristics are largely consistent with legitimate websites, though some minor indicators require verification.',
-            'recommendation': '✓ Generally safe, but apply standard security practices.',
+            'recommendation': 'Generally safe, but apply standard security practices.',
             'actions': ['Use strong, unique passwords', 'Enable two-factor authentication', 'Monitor account activity'],
             'color': '#99cc00'  # Light green
         }
     
-    elif confidence_percent >= 10:
+    elif risk_percent >= 10:
         return {
             'risk_level': 'LOW',
             'risk_category': 'Very Low Risk',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '✅ APPEARS LEGITIMATE - This site has strong indicators of being authentic.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'APPEARS LEGITIMATE - This site has strong indicators of being authentic.',
             'details': 'The domain structure, content patterns, and URL format are consistent with genuine, legitimate websites. Risk is minimal.',
-            'recommendation': '✅ Safe to use. Standard security practices apply.',
+            'recommendation': 'Safe to use. Standard security practices apply.',
             'actions': ['Use strong passwords', 'Keep software updated', 'Enable two-factor authentication'],
             'color': '#00cc00'  # Green
         }
@@ -1231,10 +1228,10 @@ def get_professional_risk_assessment(probability: float, label: int, features_di
         return {
             'risk_level': 'VERY LOW',
             'risk_category': 'Trusted',
-            'confidence_percent': round(confidence_percent, 2),
-            'description': '✅ HIGHLY TRUSTED - This site is very likely legitimate.',
+            'confidence_percent': round(risk_percent, 2),
+            'description': 'HIGHLY TRUSTED - This site is very likely legitimate.',
             'details': 'All analyzed characteristics strongly indicate an authentic, legitimate website. No phishing indicators detected.',
-            'recommendation': '✅ Appears to be a legitimate site. Standard security practices apply.',
+            'recommendation': 'Appears to be a legitimate site. Standard security practices apply.',
             'actions': ['Maintain good password hygiene', 'Use two-factor authentication where available'],
             'color': '#00aa00'  # Dark green
         }
