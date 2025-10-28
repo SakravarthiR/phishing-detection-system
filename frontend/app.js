@@ -291,8 +291,11 @@ function displayResults(data) {
     if (data.website_status) {
         const badge = document.createElement('div');
         badge.className = 'website-status-badge';
-        const status = data.website_status.is_live ? '🟢 LIVE' : '🔴 OFFLINE';
-        badge.innerHTML = `[SERVER] ${status}`;
+        const isReachable = data.website_status.is_reachable || data.website_status.is_live;
+        const statusCode = data.website_status.status_code || 'Unknown';
+        const status = isReachable ? `GREEN ONLINE (${statusCode})` : 'RED OFFLINE';
+        const icon = isReachable ? '[ONLINE]' : '[OFFLINE]';
+        badge.innerHTML = `[SERVER] ${icon} ${status}`;
         threatIndicators.appendChild(badge);
     }
     
@@ -373,25 +376,22 @@ function formatFeatureName(name) {
 
 /**
  * Format feature value for display
+ * Shows actual numeric values, not YES/NO conversions
  */
 function formatFeatureValue(value) {
     if (typeof value === 'boolean') {
         return value ? '[YES]' : '[NO]';
     }
     if (typeof value === 'number') {
-        // Check if it's a boolean flag (0 or 1)
-        if (value === 0 || value === 1) {
-            return value === 1 ? '[YES]' : '[NO]';
-        }
-        // Check if it's a probability/rate (0-1 range for counts)
-        if (value > 0 && value <= 1 && value !== Math.floor(value)) {
+        // If it's a decimal between 0-1 (actual probability), show as percentage
+        if (value > 0 && value < 1 && value !== Math.floor(value)) {
             return (value * 100).toFixed(1) + '%';
         }
-        // Check if it's already a percentage-like value (high numbers like 100)
-        if (value >= 100) {
+        // For all other numbers (including 0, 1, 2, etc), show the actual value
+        // Only show decimals if needed
+        if (Number.isInteger(value) || value === Math.floor(value)) {
             return value.toFixed(0);
         }
-        // Round other numbers to 2 decimals
         return value.toFixed(2);
     }
     if (Array.isArray(value)) {
