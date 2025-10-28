@@ -19,59 +19,34 @@ from datetime import datetime
 import sys
 import pickle
 import io
+import warnings
 
-# Custom pickle unpickler to handle scikit-learn version compatibility
-class CompatibilityUnpickler(pickle.Unpickler):
-    """Custom unpickler that fixes scikit-learn model compatibility issues"""
-    
-    def find_class(self, module, name):
-        """Override find_class to patch classes before unpickling"""
-        # For DecisionTreeClassifier and RandomForestClassifier, we need to patch
-        if module == 'sklearn.tree._classes' and name == 'DecisionTreeClassifier':
-            module = 'sklearn.tree'
-            name = 'DecisionTreeClassifier'
-        elif module == 'sklearn.ensemble._forest' and name == 'RandomForestClassifier':
-            module = 'sklearn.ensemble'
-            name = 'RandomForestClassifier'
-        
-        cls = super().find_class(module, name)
-        return cls
+# CRITICAL: Patch sklearn BEFORE any imports that use it
+import sklearn
+from sklearn import tree, ensemble
 
+# Monkey-patch sklearn classes at import time to remove monotonic_cst
+original_dt_setstate = tree.DecisionTreeClassifier.__setstate__
+original_rf_setstate = ensemble.RandomForestClassifier.__setstate__
 
-def patch_sklearn_for_old_models():
-    """Patch sklearn classes to accept and ignore old parameters"""
-    try:
-        from sklearn.tree import DecisionTreeClassifier
-        from sklearn.ensemble import RandomForestClassifier
-        
-        # Store originals
-        _dt_init = DecisionTreeClassifier.__init__
-        _rf_init = RandomForestClassifier.__init__
-        
-        # Create wrapper that removes monotonic_cst
-        def dt_init_wrapper(self, *args, **kwargs):
-            kwargs.pop('monotonic_cst', None)
-            kwargs.pop('monotonic', None)
-            _dt_init(self, *args, **kwargs)
-        
-        def rf_init_wrapper(self, *args, **kwargs):
-            kwargs.pop('monotonic_cst', None)
-            kwargs.pop('monotonic', None)
-            _rf_init(self, *args, **kwargs)
-        
-        # Apply patches
-        DecisionTreeClassifier.__init__ = dt_init_wrapper
-        RandomForestClassifier.__init__ = rf_init_wrapper
-        
-        print("[+] sklearn patches applied for old model compatibility")
-        return True
-    except Exception as e:
-        print(f"[!] Warning: could not apply sklearn patches: {e}")
-        return False
+def patched_dt_setstate(self, state):
+    """Remove monotonic_cst from old model states"""
+    if isinstance(state, dict):
+        state.pop('monotonic_cst', None)
+        state.pop('monotonic', None)
+    return original_dt_setstate(self, state)
 
+def patched_rf_setstate(self, state):
+    """Remove monotonic_cst from old model states"""
+    if isinstance(state, dict):
+        state.pop('monotonic_cst', None)
+        state.pop('monotonic', None)
+    return original_rf_setstate(self, state)
 
-# Apply patches at import time
-patch_sklearn_for_old_models()
+tree.DecisionTreeClassifier.__setstate__ = patched_dt_setstate
+ensemble.RandomForestClassifier.__setstate__ = patched_rf_setstate
+
+print("[+] sklearn __setstate__ patches applied at import")
 
 
 def check_website_live(url: str, timeout: int = 5) -> dict:
@@ -440,7 +415,7 @@ def extract_features(url: str) -> pd.DataFrame:
 def load_model(model_path: str = 'phish_model.pkl'):
     """
     Load the trained phishing detection model from disk.
-    Uses custom unpickler to handle scikit-learn version compatibility.
+    sklearn __setstate__ patches are already applied at module import.
     
     Args:
         model_path: Path to the saved model file
@@ -453,26 +428,10 @@ def load_model(model_path: str = 'phish_model.pkl'):
             print(f"[-] Model file not found: {model_path}")
             return None
         
-        # Try loading with joblib first (with patched sklearn)
-        try:
-            model = joblib.load(model_path)
-            print(f"[+] Model loaded successfully from {model_path}")
-            return model
-        except AttributeError as e:
-            if 'monotonic_cst' in str(e):
-                # Fallback: use custom unpickler
-                print(f"[!] Standard loading failed, trying custom unpickler")
-                try:
-                    with open(model_path, 'rb') as f:
-                        unpickler = CompatibilityUnpickler(f)
-                        model = unpickler.load()
-                    print(f"[+] Model loaded with custom unpickler")
-                    return model
-                except Exception as e2:
-                    print(f"[-] Custom unpickler also failed: {e2}")
-                    return None
-            else:
-                raise
+        # Load with joblib (sklearn patches already applied)
+        model = joblib.load(model_path)
+        print(f"[+] Model loaded successfully from {model_path}")
+        return model
         
     except Exception as e:
         print(f"[-] Error loading model: {str(e)}")
