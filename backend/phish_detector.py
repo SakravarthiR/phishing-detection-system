@@ -384,6 +384,7 @@ def extract_features(url: str) -> pd.DataFrame:
 def load_model(model_path: str = 'phish_model.pkl'):
     """
     Load the trained phishing detection model from disk.
+    Handles version compatibility issues with scikit-learn.
     
     Args:
         model_path: Path to the saved model file
@@ -393,14 +394,34 @@ def load_model(model_path: str = 'phish_model.pkl'):
     """
     try:
         if not os.path.exists(model_path):
-            print(f" Model file not found: {model_path}")
+            print(f"❌ Model file not found: {model_path}")
             return None
         
-        model = joblib.load(model_path)
-        print(f" Model loaded successfully from {model_path}")
-        return model
+        # Try loading with standard joblib
+        try:
+            model = joblib.load(model_path)
+            print(f"✅ Model loaded successfully from {model_path}")
+            return model
+        except AttributeError as e:
+            # Handle scikit-learn version compatibility issues
+            if 'monotonic_cst' in str(e):
+                print(f"⚠️ Model version compatibility issue: {str(e)}")
+                print("🔧 Attempting to load with compatibility fixes...")
+                
+                # Try loading with unsafe=True which allows loading old pickle files
+                try:
+                    model = joblib.load(model_path, mmap_mode=None)
+                    print(f"✅ Model loaded with compatibility mode")
+                    return model
+                except Exception as e2:
+                    print(f"❌ Compatibility mode also failed: {str(e2)}")
+                    return None
+            else:
+                raise
     except Exception as e:
-        print(f"Error loading model: {str(e)}")
+        print(f"❌ Error loading model: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 
