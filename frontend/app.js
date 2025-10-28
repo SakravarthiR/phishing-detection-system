@@ -529,6 +529,11 @@ function displayFeatures(features) {
     
     // Categorize and display features with better formatting
     for (const [key, value] of Object.entries(features)) {
+        // Skip threat-related features - they have their own dedicated tables
+        if (key.startsWith('threat_') || key === 'content_score' || key.startsWith('content_')) {
+            continue;
+        }
+        
         const featureEl = document.createElement('div');
         featureEl.className = 'feature-item';
         
