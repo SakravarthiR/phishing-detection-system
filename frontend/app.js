@@ -204,15 +204,24 @@ async function checkPhishing(url) {
         
         if (!response.ok) {
             console.error('❌ API Error:', response.status, response.statusText);
-            let errorMsg = `Error: ${response.status} ${response.statusText}`;
+            let errorMsg = `API Error ${response.status}: ${response.statusText}`;
             
             try {
                 const errorData = await response.json();
                 errorMsg = errorData.message || errorData.error || errorMsg;
-                console.error('Error data:', errorData);
+                console.error('Error data from API:', errorData);
             } catch (e) {
-                console.error('Could not parse error response');
-                // Response might not be JSON, that's ok
+                console.error('Could not parse JSON error response');
+                // Try to get text response
+                try {
+                    const text = await response.text();
+                    console.error('Error response text:', text);
+                    if (text && text.length < 200) {
+                        errorMsg = text;
+                    }
+                } catch (e2) {
+                    // Couldn't read response
+                }
             }
             
             throw new Error(errorMsg);
