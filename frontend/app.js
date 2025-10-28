@@ -289,78 +289,78 @@ function displayResults(data) {
     // Clear threat indicators
     threatIndicators.innerHTML = '';
     
-    // Add risk level badge
+    // Build compact threat assessment section
+    let threatHTML = '';
+    
+    // THREAT LEVEL
     if (riskData.risk_level) {
-        const riskBadge = document.createElement('div');
-        riskBadge.className = 'risk-level-badge';
-        riskBadge.style.borderLeftColor = riskColor;
-        riskBadge.style.backgroundColor = riskColor + '15';  // 15% opacity
-        riskBadge.innerHTML = `
-            <strong style="color: ${riskColor}">THREAT LEVEL:</strong> 
-            <span>${riskData.risk_level}</span>
-            <div style="font-size: 0.9em; margin-top: 4px; color: #666;">${riskData.risk_category}</div>
+        threatHTML += `
+            <div class="threat-assessment-section">
+                <div class="threat-header" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
+                    <div class="threat-title">THREAT LEVEL:</div>
+                    <div class="threat-value" style="color: ${riskColor}">${riskData.risk_level}</div>
+                    <div class="threat-category">${riskData.risk_category}</div>
+                </div>
         `;
-        threatIndicators.appendChild(riskBadge);
     }
     
-    // Add recommendation badge
+    // RECOMMENDATION
     if (riskRecommendation) {
-        const recBadge = document.createElement('div');
-        recBadge.className = 'recommendation-badge';
-        recBadge.style.borderLeftColor = riskColor;
-        recBadge.style.backgroundColor = riskColor + '15';
-        recBadge.innerHTML = `
-            <strong style="color: ${riskColor}">RECOMMENDATION:</strong> 
-            <div>${riskRecommendation}</div>
+        threatHTML += `
+            <div class="recommendation-section" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
+                <div class="section-title" style="color: ${riskColor}">RECOMMENDATION:</div>
+                <div class="section-content">${riskRecommendation}</div>
+            </div>
         `;
-        threatIndicators.appendChild(recBadge);
     }
     
-    // Add actions if available
+    // SUGGESTED ACTIONS
     if (riskData.actions && Array.isArray(riskData.actions) && riskData.actions.length > 0) {
-        const actionsBadge = document.createElement('div');
-        actionsBadge.className = 'actions-badge';
-        actionsBadge.style.borderLeftColor = riskColor;
-        actionsBadge.style.backgroundColor = riskColor + '15';
-        let actionsHtml = '<strong style="color: ' + riskColor + '">SUGGESTED ACTIONS:</strong><ul style="margin: 8px 0;">';
-        riskData.actions.forEach(action => {
-            actionsHtml += `<li style="margin: 4px 0; font-size: 0.9em;">${action}</li>`;
-        });
-        actionsHtml += '</ul>';
-        actionsBadge.innerHTML = actionsHtml;
-        threatIndicators.appendChild(actionsBadge);
+        threatHTML += `
+            <div class="actions-section" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
+                <div class="section-title" style="color: ${riskColor}">SUGGESTED ACTIONS:</div>
+                <ul class="actions-list">
+                    ${riskData.actions.map(action => `<li>${action}</li>`).join('')}
+                </ul>
+            </div>
+        `;
     }
     
-    // Add PhishTank badge if verified
+    // SERVER STATUS
+    if (data.website_status) {
+        const isReachable = data.website_status.is_reachable || data.website_status.is_live;
+        const statusCode = data.website_status.status_code || '---';
+        const serverStatus = isReachable ? 'Online' : 'Offline';
+        threatHTML += `
+            <div class="server-status-section" style="border-left-color: #0099ff; background-color: #0099ff15">
+                <span class="status-label">Server Status:</span>
+                <span class="status-value">${serverStatus} (HTTP ${statusCode})</span>
+            </div>
+        `;
+    }
+    
+    // CONFIDENCE LEVEL
+    threatHTML += `
+        <div class="confidence-section" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
+            <span class="confidence-label">Confidence Level:</span>
+            <span class="confidence-value" style="color: ${riskColor}">${riskData.confidence_level || (displayConfidence > 80 ? 'HIGH' : displayConfidence > 50 ? 'MEDIUM' : 'LOW')}</span>
+        </div>
+    `;
+    
+    if (threatHTML) {
+        threatHTML += '</div>';  // Close threat-assessment-section
+        threatIndicators.innerHTML = threatHTML;
+    }
+    
+    // Add PhishTank badge if verified (separate)
     if (data.phishtank_verified && data.phishtank_data) {
         const badge = document.createElement('div');
         badge.className = 'phishtank-badge';
         badge.style.borderLeftColor = '#ff0000';
         badge.style.backgroundColor = '#ff000015';
-        badge.innerHTML = `<strong style="color: #ff0000">[PhishTank]</strong> Verified phishing site - ID: ${data.phishtank_data.phish_id}`;
+        badge.innerHTML = `<strong style="color: #ff0000">[VERIFIED PHISHING]</strong> ID: ${data.phishtank_data.phish_id}`;
         threatIndicators.appendChild(badge);
     }
-    
-    // Add professional server status
-    if (data.website_status) {
-        const badge = document.createElement('div');
-        badge.className = 'website-status-badge';
-        const isReachable = data.website_status.is_reachable || data.website_status.is_live;
-        const statusCode = data.website_status.status_code || '---';
-        const serverStatus = isReachable ? 'Online' : 'Offline';
-        badge.style.borderLeftColor = '#0099ff';
-        badge.style.backgroundColor = '#0099ff15';
-        badge.innerHTML = `<strong style="color: #0099ff">Server Status:</strong> ${serverStatus} (HTTP ${statusCode})`;
-
-        threatIndicators.appendChild(badge);
-    }
-    
-    // Add confidence level badge
-    const confBadge = document.createElement('div');
-    confBadge.className = 'confidence-badge';
-    const confLevel = data.confidence_level ? data.confidence_level.toUpperCase() : 'MEDIUM';
-    confBadge.textContent = `Confidence Level: ${confLevel}`;
-    threatIndicators.appendChild(confBadge);
     
     // Display features
     if (data.features && Object.keys(data.features).length > 0) {

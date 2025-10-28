@@ -469,11 +469,11 @@ def load_model(model_path: str = 'phish_model.pkl'):
         return None
 
 
-def perform_advanced_nmap_scan(url: str, timeout: int = 5) -> Dict:
+def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
     """
-    ADVANCED NMAP-STYLE DEEP SCAN - Comprehensive website fingerprinting and threat detection.
+    ADVANCED DEEP WEBSITE ANALYSIS - Comprehensive website fingerprinting and threat detection.
     
-    Performs detailed analysis like NMAP but for phishing indicators:
+    Performs detailed analysis for phishing indicators:
     - Server fingerprinting and banner grabbing
     - TLS/SSL certificate chain analysis
     - Port and service detection
@@ -649,7 +649,7 @@ def perform_advanced_nmap_scan(url: str, timeout: int = 5) -> Dict:
         return scan_results
         
     except Exception as e:
-        print(f"[!] Advanced NMAP scan error: {e}")
+        print(f"[!] Advanced threat detection error: {e}")
         scan_results['scan_score'] = 0.5  # Default to neutral if scan fails
         return scan_results
 
@@ -657,7 +657,7 @@ def perform_advanced_nmap_scan(url: str, timeout: int = 5) -> Dict:
 
 def analyze_website_content(url: str, timeout: int = 5) -> Dict:
     """
-    COMPREHENSIVE DEEP WEBSITE ANALYSIS - Like NMAP for phishing detection.
+    COMPREHENSIVE DEEP WEBSITE ANALYSIS - Analyzes HTML content, forms, and security indicators
     
     Analyzes:
     - SSL/TLS certificate validity
@@ -1000,14 +1000,14 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     except Exception:
         content_analysis = {'content_score': 0.5}
 
-    # Advanced NMAP-style deep scan
+    # Advanced deep scan for threat indicators
     try:
-        nmap_scan = perform_advanced_nmap_scan(url)
-        nmap_score = nmap_scan.get('scan_score', 0.5)
-        risk_indicators = nmap_scan.get('risk_indicators', [])
+        threat_scan = perform_advanced_threat_detection(url)
+        threat_score = threat_scan.get('scan_score', 0.5)
+        risk_indicators = threat_scan.get('risk_indicators', [])
     except Exception:
-        nmap_scan = {}
-        nmap_score = 0.5
+        threat_scan = {}
+        threat_score = 0.5
         risk_indicators = []
 
     # content_score is higher -> more suspicious (we designed it that way)
@@ -1017,14 +1017,14 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     rule_suspicion = max(0.0, min(1.0, phishing_score / 100.0))
 
     # Combine signals: weights tuned for balanced behaviour
-    # ML (55%) + Content (25%) + NMAP scan (10%) + Rules (10%)
+    # ML (55%) + Content (25%) + Threat Detection (10%) + Rules (10%)
     w_ml = 0.55
     w_content = 0.25
-    w_nmap = 0.10
+    w_threat = 0.10
     w_rules = 0.10
 
     combined_phish_prob = (w_ml * ml_phish_prob) + (w_content * content_suspicion) + \
-                         (w_nmap * nmap_score) + (w_rules * rule_suspicion)
+                         (w_threat * threat_score) + (w_rules * rule_suspicion)
     combined_phish_prob = max(0.0, min(1.0, combined_phish_prob))
 
     # Decide final label and confidence
@@ -1034,8 +1034,8 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     # Merge content analysis into features for response/diagnostics
     features_dict.update({f'content_{k}': v for k, v in content_analysis.items()})
     
-    # Add NMAP scan results
-    features_dict.update({f'nmap_{k}': v for k, v in nmap_scan.items()})
+    # Add threat detection scan results
+    features_dict.update({f'threat_{k}': v for k, v in threat_scan.items()})
     features_dict['threat_indicators'] = risk_indicators
     # Also include ML and combined probabilities for transparency
     features_dict['ml_phish_prob'] = round(ml_phish_prob, 4)
