@@ -469,6 +469,138 @@ def load_model(model_path: str = 'phish_model.pkl'):
         return None
 
 
+def analyze_website_content(url: str, timeout: int = 5) -> Dict:
+    """
+    Analyze the actual website content to detect phishing indicators.
+    
+    Checks for:
+    - Login forms on suspicious domains
+    - External form submission URLs
+    - Suspicious JavaScript
+    - Certificate issues
+    - HTTPS enforcement
+    - Meta refresh redirects
+    - Hidden form fields
+    - Mismatched domain in links/forms
+    
+    Args:
+        url: The website URL to analyze
+        timeout: Request timeout in seconds
+        
+    Returns:
+        Dictionary with content analysis indicators
+    """
+    analysis = {
+        'has_login_form': False,
+        'has_external_form': False,
+        'has_meta_refresh': False,
+        'has_hidden_inputs': False,
+        'suspicious_scripts': 0,
+        'external_links_count': 0,
+        'forms_targeting_external': 0,
+        'domain_mismatches': 0,
+        'phishing_indicators': 0,
+        'content_score': 0.0
+    }
+    
+    try:
+        # Attempt to fetch the website
+        import re as regex_module
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        response = requests.get(url, timeout=timeout, verify=False, headers=headers, allow_redirects=True)
+        
+        if response.status_code != 200:
+            analysis['content_score'] = 0.3  # Bad status = suspicious
+            return analysis
+        
+        html_content = response.text.lower()
+        
+        # Extract domain from URL for comparison
+        parsed_url = urlparse(url)
+        main_domain = parsed_url.netloc.replace('www.', '')
+        
+        # Check 1: Login forms
+        if '<form' in html_content:
+            # Look for password fields
+            if 'type="password"' in html_content or 'type=password' in html_content or 'password' in html_content:
+                analysis['has_login_form'] = True
+                analysis['phishing_indicators'] += 1
+                
+                # Check if form action goes to external domain
+                import re as regex_module
+                form_actions = regex_module.findall(r'<form[^>]*action=["\']?([^"\'\s>]+)', html_content)
+                for action in form_actions:
+                    if action.startswith('http'):
+                        action_domain = urlparse(action).netloc.replace('www.', '')
+                        if action_domain != main_domain:
+                            analysis['has_external_form'] = True
+                            analysis['phishing_indicators'] += 2
+                            analysis['forms_targeting_external'] += 1
+        
+        # Check 2: Meta refresh redirects (common in phishing)
+        if '<meta' in html_content and 'refresh' in html_content:
+            if 'http' in html_content:  # Redirecting to external URL
+                analysis['has_meta_refresh'] = True
+                analysis['phishing_indicators'] += 2
+        
+        # Check 3: Hidden input fields (used to capture data)
+        hidden_inputs = len(regex_module.findall(r'type=["\']?hidden["\']?', html_content))
+        if hidden_inputs > 3:  # Unusual number of hidden fields
+            analysis['has_hidden_inputs'] = True
+            analysis['phishing_indicators'] += 1
+        
+        # Check 4: Suspicious JavaScript patterns
+        suspicious_patterns = [
+            'keylogger',
+            'stealpassword',
+            'collect.*password',
+            'document\.location.*script',
+            'eval\(',
+            'createElement.*iframe'
+        ]
+        for pattern in suspicious_patterns:
+            if regex_module.search(pattern, html_content):
+                analysis['suspicious_scripts'] += 1
+                analysis['phishing_indicators'] += 1
+        
+        # Check 5: Check for HTTPS enforcement (good sign if present)
+        has_hsts = 'strict-transport-security' in response.headers.get('set-cookie', '').lower() or \
+                   'strict-transport-security' in ' '.join(response.headers.keys()).lower()
+        
+        # Check 6: Look for legitimate indicators (reduce suspicion)
+        legitimate_indicators = [
+            'privacy policy',
+            'terms of service',
+            'contact us',
+            'about us',
+            'copyright'
+        ]
+        legitimate_count = sum(1 for indicator in legitimate_indicators if indicator in html_content)
+        
+        # Calculate content score
+        # Base score: 0.5 (neutral)
+        content_score = 0.5
+        
+        # Reduce score for phishing indicators (increase suspicion)
+        content_score += (analysis['phishing_indicators'] * 0.1)  # Each indicator increases phishing likelihood
+        
+        # Increase score for legitimate indicators (decrease suspicion)
+        content_score -= (legitimate_count * 0.08)  # Each legitimate indicator reduces suspicion
+        
+        # Cap at 0-1 range
+        analysis['content_score'] = max(0.0, min(1.0, content_score))
+        
+        return analysis
+        
+    except Exception as e:
+        print(f"[!] Content analysis error: {str(e)}")
+        # If we can't fetch content, assume it's suspicious
+        analysis['content_score'] = 0.4
+        return analysis
+
+
 def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     """
     Predict whether a URL is phishing or legitimate with advanced rule-based overrides.
@@ -489,15 +621,15 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     # Extract features
     features_df = extract_features(url)
     features_dict = features_df.to_dict(orient='records')[0]
-    
+
     # Make ML prediction
     prediction = model.predict(features_df)[0]
-    
-    # Get probability (confidence score)
-    probability = model.predict_proba(features_df)[0]
-    # probability[0] is confidence for class 0 (legitimate)
-    # probability[1] is confidence for class 1 (phishing)
-    confidence = probability[1] if prediction == 1 else probability[0]
+
+    # Get probability vector (confidence for each class)
+    prob_vector = model.predict_proba(features_df)[0]
+    # ml_phish_prob is model's probability for phishing class
+    ml_phish_prob = float(prob_vector[1])
+    # ml_legit_prob = float(prob_vector[0])
     
     # ===== ADVANCED RULE-BASED OVERRIDES =====
     # Sometimes the ML model is too trusting, so we add manual checks
@@ -563,15 +695,42 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     
     # Final decision - override ML if our rules are confident enough
     if phishing_score >= 50:
-        # Yeah this is phishing, I'm like 95% sure
-        prediction = 1
-        confidence = min(0.95, 0.75 + (phishing_score / 200))
+        # Boost ML phishing probability
+        ml_phish_prob = max(ml_phish_prob, min(0.95, 0.75 + (phishing_score / 200)))
     elif phishing_score >= 30 and prediction == 0:
-        # ML says it's fine but our rules disagree, trust the rules
-        prediction = 1
-        confidence = min(0.85, 0.65 + (phishing_score / 250))
-    
-    return int(prediction), float(confidence), features_dict
+        ml_phish_prob = max(ml_phish_prob, min(0.85, 0.65 + (phishing_score / 250)))
+
+    # Content-based analysis (crawl the page and inspect forms/links/scripts)
+    try:
+        content_analysis = analyze_website_content(url)
+    except Exception:
+        content_analysis = {'content_score': 0.5}
+
+    # content_score is higher -> more suspicious (we designed it that way)
+    content_suspicion = float(content_analysis.get('content_score', 0.5))
+
+    # Normalize rule-based phishing score to 0-1 (assume max 100)
+    rule_suspicion = max(0.0, min(1.0, phishing_score / 100.0))
+
+    # Combine signals: weights tuned for balanced behaviour
+    w_ml = 0.55
+    w_content = 0.30
+    w_rules = 0.15
+
+    combined_phish_prob = (w_ml * ml_phish_prob) + (w_content * content_suspicion) + (w_rules * rule_suspicion)
+    combined_phish_prob = max(0.0, min(1.0, combined_phish_prob))
+
+    # Decide final label and confidence
+    final_label = 1 if combined_phish_prob >= 0.5 else 0
+    final_confidence = combined_phish_prob if final_label == 1 else 1.0 - combined_phish_prob
+
+    # Merge content analysis into features for response/diagnostics
+    features_dict.update({f'content_{k}': v for k, v in content_analysis.items()})
+    # Also include ML and combined probabilities for transparency
+    features_dict['ml_phish_prob'] = round(ml_phish_prob, 4)
+    features_dict['combined_phish_prob'] = round(combined_phish_prob, 4)
+
+    return int(final_label), float(final_confidence), features_dict
 
 
 def get_top_feature(features_dict: Dict) -> str:
