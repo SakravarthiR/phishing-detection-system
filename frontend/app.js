@@ -1,12 +1,27 @@
 /**
  * Main Application Logic - Phishing URL Detector
  * Handles the URL checking form and parallax background effect
+ * Matches discovery-engine.js pattern for consistency
  */
+
+// 3D Parallax Background Effect
+document.addEventListener('mousemove', (e) => {
+    const parallaxBg = document.querySelector('.parallax-bg');
+    if (!parallaxBg) return;
+    
+    const mouseX = e.clientX / window.innerWidth;
+    const mouseY = e.clientY / window.innerHeight;
+    
+    const moveX = (mouseX - 0.5) * 20;
+    const moveY = (mouseY - 0.5) * 20;
+    
+    parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.02)`;
+});
 
 // Configuration
 const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
-const SESSION_KEY = 'phishing_detector_session';
+const USE_SECURE_API = true; // Use JWT authentication
 
 // DOM Elements
 let urlInput, checkBtn, btnText, btnSpinner;
@@ -15,145 +30,86 @@ let resultHeader, resultIcon, resultLabel, resultUrl;
 let resultProbability, resultClassification;
 let progressBar, resultReason, threatIndicators;
 let errorMessage, dismissError;
-let advancedSubdomainTable, advancedSubdomainTableBody;
 let securityFeatures, structureFeatures, characterFeatures;
 let domainFeatures, advancedFeatures;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        // Check if user is authenticated - if not, redirect to login
-        const hasAuth = checkAuthentication();
-        console.log('🔐 Authentication check:', hasAuth ? 'PASSED' : 'FAILED');
-        
-        if (!hasAuth) {
-            console.log('⚠️ Not authenticated, redirecting to login...');
-            window.location.href = 'secure-auth-portal.html';
-            return;
-        }
-        
-        // Initialize the app
-        console.log('✅ Initializing URL checker app...');
-        init();
-        setupParallax();
-        console.log('✅ App initialized successfully');
-        
-    } catch (error) {
-        console.error('❌ App initialization error:', error);
-        // Show error to user
-        alert('Error initializing app: ' + error.message);
-    }
+    console.log('� App loading...');
+    init();
 });
 
 /**
- * Check if user has valid authentication token
+ * Initialize the application
  */
-function checkAuthentication() {
-    try {
-        const session = localStorage.getItem(SESSION_KEY);
-        if (!session) return false;
-        
-        const sessionData = JSON.parse(session);
-        const currentTime = new Date().getTime();
-        
-        // Check if session is still valid
-        if (currentTime < sessionData.expiry && sessionData.token) {
-            return true;
-        } else {
-            // Session expired
-            localStorage.removeItem(SESSION_KEY);
-            return false;
-        }
-    } catch (e) {
-        return false;
-    }
-}
-
 function init() {
-    try {
-        // Get DOM elements
-        urlInput = document.getElementById('urlInput');
-        checkBtn = document.getElementById('checkBtn');
-        btnText = document.getElementById('btnText');
-        btnSpinner = document.getElementById('btnSpinner');
-        
-        resultsSection = document.getElementById('resultsSection');
-        resultsCard = document.getElementById('resultsCard');
-        errorSection = document.getElementById('errorSection');
-        
-        resultHeader = document.getElementById('resultHeader');
-        resultIcon = document.getElementById('resultIcon');
-        resultLabel = document.querySelector('#resultLabel');
-        resultUrl = document.getElementById('resultUrl');
-        
-        resultProbability = document.getElementById('resultProbability');
-        resultClassification = document.getElementById('resultClassification');
-        progressBar = document.getElementById('progressBar');
-        resultReason = document.getElementById('resultReason');
-        threatIndicators = document.getElementById('threatIndicators');
-        
-        errorMessage = document.getElementById('errorMessage');
-        dismissError = document.getElementById('dismissError');
-        
-        advancedSubdomainTableBody = document.getElementById('advancedSubdomainTableBody');
-        securityFeatures = document.getElementById('securityFeatures');
-        structureFeatures = document.getElementById('structureFeatures');
-        characterFeatures = document.getElementById('characterFeatures');
-        domainFeatures = document.getElementById('domainFeatures');
-        advancedFeatures = document.getElementById('advancedFeatures');
-        
-        // Validate critical elements
-        if (!urlInput || !checkBtn || !resultsSection || !errorSection) {
-            throw new Error('Critical DOM elements not found');
-        }
-        
-        console.log('✅ All DOM elements loaded successfully');
-        
-        // Event listeners
-        checkBtn.addEventListener('click', checkURL);
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') checkURL();
-        });
-        if (dismissError) {
-            dismissError.addEventListener('click', hideError);
-        }
-        
-        console.log('✅ Event listeners attached');
-        
-    } catch (error) {
-        console.error('❌ Init error:', error);
-        throw error;
+    console.log('✅ Initializing phishing detector...');
+    
+    // Get DOM elements
+    urlInput = document.getElementById('urlInput');
+    checkBtn = document.getElementById('checkBtn');
+    btnText = document.getElementById('btnText');
+    btnSpinner = document.getElementById('btnSpinner');
+    
+    resultsSection = document.getElementById('resultsSection');
+    resultsCard = document.getElementById('resultsCard');
+    errorSection = document.getElementById('errorSection');
+    
+    resultHeader = document.getElementById('resultHeader');
+    resultIcon = document.getElementById('resultIcon');
+    resultLabel = document.querySelector('#resultLabel');
+    resultUrl = document.getElementById('resultUrl');
+    
+    resultProbability = document.getElementById('resultProbability');
+    resultClassification = document.getElementById('resultClassification');
+    progressBar = document.getElementById('progressBar');
+    resultReason = document.getElementById('resultReason');
+    threatIndicators = document.getElementById('threatIndicators');
+    
+    errorMessage = document.getElementById('errorMessage');
+    dismissError = document.getElementById('dismissError');
+    
+    securityFeatures = document.getElementById('securityFeatures');
+    structureFeatures = document.getElementById('structureFeatures');
+    characterFeatures = document.getElementById('characterFeatures');
+    domainFeatures = document.getElementById('domainFeatures');
+    advancedFeatures = document.getElementById('advancedFeatures');
+    
+    // Event listeners
+    checkBtn.addEventListener('click', checkURL);
+    urlInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') checkURL();
+    });
+    if (dismissError) {
+        dismissError.addEventListener('click', hideError);
     }
+    
+    console.log('✅ App initialized successfully');
 }
 
 /**
- * Setup 3D Parallax Background Effect
+ * Get JWT token from localStorage
+ * Matches discovery-engine.js pattern
  */
-function setupParallax() {
+function getAuthToken() {
+    const session = localStorage.getItem('phishing_detector_session');
+    if (!session) {
+        console.warn('⚠️ No session found');
+        return null;
+    }
+    
     try {
-        const parallaxBg = document.querySelector('.parallax-bg');
-        
-        if (!parallaxBg) {
-            console.warn('⚠️ Parallax background element not found');
-            return;
+        const sessionData = JSON.parse(session);
+        if (sessionData.token && sessionData.expiry > Date.now()) {
+            return sessionData.token;
+        } else {
+            console.warn('⚠️ Token expired');
+            localStorage.removeItem('phishing_detector_session');
+            return null;
         }
-        
-        console.log('✅ Parallax background found, setting up effect...');
-        
-        document.addEventListener('mousemove', (e) => {
-            const mouseX = e.clientX / window.innerWidth;
-            const mouseY = e.clientY / window.innerHeight;
-            
-            const moveX = (mouseX - 0.5) * 20; // Adjust intensity
-            const moveY = (mouseY - 0.5) * 20;
-            
-            parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.02)`;
-        });
-        
-        console.log('✅ Parallax effect enabled');
-        
-    } catch (error) {
-        console.error('❌ Parallax setup error:', error);
+    } catch (e) {
+        console.error('⚠️ Session parse error:', e);
+        return null;
     }
 }
 
@@ -161,18 +117,15 @@ function setupParallax() {
  * Check URL for phishing threats
  */
 async function checkURL() {
-    console.log('🔍 Check URL clicked');
-    
     const url = urlInput.value.trim();
     
     // Validate input
     if (!url) {
-        console.warn('⚠️ No URL provided');
-        showError('Please enter a URL');
+        alert('Please enter a URL');
         return;
     }
     
-    console.log('📝 URL entered:', url);
+    console.log(`Checking URL: ${url}`);
     
     // Add protocol if missing
     let fullURL = url;
@@ -180,79 +133,88 @@ async function checkURL() {
         fullURL = 'https://' + url;
     }
     
-    console.log('📨 Full URL to check:', fullURL);
-    
-    // Show loading state
-    showLoading();
+    // Update UI
     hideError();
     hideResults();
+    setLoading(true);
+    showLoading();
     
     try {
-        const token = getAuthToken();
-        console.log('🔐 Token status:', token ? 'Present (' + token.length + ' chars)' : 'Missing');
+        // Get auth token
+        const result = await checkPhishing(fullURL);
         
-        // Call backend API
-        console.log('🌐 Calling API:', `${API_BASE_URL}/predict`);
+        // Display results
+        displayResults(result);
+        
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        setLoading(false);
+        hideLoading();
+    }
+}
+
+/**
+ * Call phishing checker API
+ */
+async function checkPhishing(url) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+    
+    try {
+        const headers = {
+            'Content-Type': 'application/json',
+        };
+        
+        // Add JWT token if using secure API
+        if (USE_SECURE_API) {
+            const token = getAuthToken();
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+        }
         
         const response = await fetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ url: fullURL })
+            headers: headers,
+            body: JSON.stringify({ url: url }),
+            signal: controller.signal
         });
         
-        console.log('📊 API Response status:', response.status);
+        clearTimeout(timeoutId);
+        
+        // If auth fails, redirect to login
+        if (response.status === 401 && USE_SECURE_API) {
+            console.warn('Token expired - back to login');
+            window.location.href = 'secure-auth-portal.html';
+            throw new Error('Authentication required');
+        }
         
         if (!response.ok) {
-            if (response.status === 401) {
-                console.error('❌ Authentication failed (401)');
-                // Clear session and redirect to login
-                localStorage.removeItem(SESSION_KEY);
-                window.location.href = 'secure-auth-portal.html';
-                return;
-            }
-            
-            // Try to get error message from response
-            let errorMsg = `API Error: ${response.statusText}`;
-            try {
-                const errorData = await response.json();
-                errorMsg = errorData.message || errorData.error || errorMsg;
-            } catch (e) {
-                // Response isn't JSON, use generic message
-            }
-            
-            console.error('❌ API Error:', errorMsg);
-            throw new Error(errorMsg);
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Analysis failed');
         }
         
         const data = await response.json();
-        console.log('✅ Analysis complete:', data);
-        displayResults(data, fullURL);
+        return data;
         
     } catch (error) {
-        console.error('❌ Error:', error);
-        const token = getAuthToken();
-        console.error('Token status:', token ? 'Present' : 'Missing');
-        if (token) {
-            console.error('Token preview:', token.substring(0, 20) + '...');
+        if (error.name === 'AbortError') {
+            throw new Error('Request took too long - please try again');
         }
-        showError(`Error checking URL: ${error.message}`);
-    } finally {
-        hideLoading();
+        throw error;
     }
 }
 
 /**
  * Display the phishing analysis results
  */
-function displayResults(data, url) {
+function displayResults(data) {
     // Set result status
     const isPhishing = data.label === 1 || data.prediction === 'phishing';
     const confidence = Math.round((data.probability || 0) * 100);
     
-    // Update card color and icon based on result
+    // Update card appearance
     if (isPhishing) {
         resultHeader.style.borderLeftColor = '#ff0000';
         resultIcon.textContent = '🚨';
@@ -267,11 +229,9 @@ function displayResults(data, url) {
         resultsCard.style.borderColor = '#00ff00';
     }
     
-    // Set URL
-    resultUrl.textContent = url;
-    resultUrl.title = url; // Full URL in tooltip
-    
-    // Set probability and classification
+    // Set result details
+    resultUrl.textContent = data.url;
+    resultUrl.title = data.url;
     resultProbability.textContent = `${confidence}%`;
     resultClassification.textContent = isPhishing ? 'PHISHING' : 'LEGITIMATE';
     
@@ -279,56 +239,38 @@ function displayResults(data, url) {
     progressBar.style.width = `${confidence}%`;
     progressBar.style.backgroundColor = isPhishing ? '#ff0000' : '#00ff00';
     
-    // Set reason/analysis
+    // Set reason
     resultReason.textContent = data.reason || 'No additional analysis available';
     
-    // Display PhishTank verification status if available
+    // Clear threat indicators
+    threatIndicators.innerHTML = '';
+    
+    // Add PhishTank badge
     if (data.phishtank_verified) {
-        const phishtankBadge = document.createElement('div');
-        phishtankBadge.className = 'phishtank-badge';
-        phishtankBadge.innerHTML = `
-            <strong>[*] VERIFIED BY PHISHTANK</strong><br/>
-            Phish ID: ${data.phishtank_data.phish_id}<br/>
-            Target: ${data.phishtank_data.target}<br/>
-            Submitted: ${new Date(data.phishtank_data.submission_time).toLocaleString()}<br/>
-            <a href="${data.phishtank_data.detail_url}" target="_blank" rel="noopener">[View Details]</a>
-        `;
-        threatIndicators.appendChild(phishtankBadge);
+        const badge = document.createElement('div');
+        badge.className = 'phishtank-badge';
+        badge.innerHTML = `[*] VERIFIED BY PHISHTANK - ID: ${data.phishtank_data.phish_id}`;
+        threatIndicators.appendChild(badge);
     }
     
-    // Display website status
+    // Add website status
     if (data.website_status) {
-        const statusBadge = document.createElement('div');
-        statusBadge.className = 'website-status-badge';
-        statusBadge.innerHTML = `
-            <strong>[SERVER]</strong> 
-            Status: ${data.website_status.is_live ? '🟢 LIVE' : '🔴 OFFLINE'}<br/>
-            Response Time: ${data.website_status.response_time || 'N/A'}ms
-        `;
-        threatIndicators.appendChild(statusBadge);
+        const badge = document.createElement('div');
+        badge.className = 'website-status-badge';
+        const status = data.website_status.is_live ? '🟢 LIVE' : '🔴 OFFLINE';
+        badge.innerHTML = `[SERVER] ${status}`;
+        threatIndicators.appendChild(badge);
     }
     
-    // Display confidence level
-    const confidenceBadge = document.createElement('div');
-    confidenceBadge.className = 'confidence-badge';
-    const confidenceText = data.confidence ? data.confidence.toUpperCase().replace('_', ' ') : 'UNKNOWN';
-    confidenceBadge.textContent = `Confidence: ${confidenceText}`;
-    threatIndicators.appendChild(confidenceBadge);
+    // Add confidence badge
+    const confBadge = document.createElement('div');
+    confBadge.className = 'confidence-badge';
+    confBadge.textContent = `Confidence: ${data.confidence ? data.confidence.toUpperCase() : 'UNKNOWN'}`;
+    threatIndicators.appendChild(confBadge);
     
-    // Display scan timestamp
-    const timestampBadge = document.createElement('div');
-    timestampBadge.className = 'timestamp-badge';
-    timestampBadge.textContent = `Scanned: ${new Date(data.scanned_at).toLocaleString()}`;
-    threatIndicators.appendChild(timestampBadge);
-    
-    // Display advanced features if available
+    // Display features
     if (data.features && Object.keys(data.features).length > 0) {
         displayFeatures(data.features);
-    } else {
-        // If no features but has prediction, show basic info
-        if (data.phishtank_verified) {
-            securityFeatures.innerHTML = '<div class="feature-item"><span class="feature-name">Source</span><span class="feature-value">PhishTank Database</span></div>';
-        }
     }
     
     showResults();
@@ -459,26 +401,29 @@ function hideResults() {
 }
 
 function showError(message) {
-    errorMessage.textContent = message;
-    errorSection.classList.remove('hidden');
+    if (errorMessage) {
+        errorMessage.textContent = message;
+    }
+    if (errorSection) {
+        errorSection.classList.remove('hidden');
+    }
 }
 
 function hideError() {
-    errorSection.classList.add('hidden');
+    if (errorSection) {
+        errorSection.classList.add('hidden');
+    }
 }
 
 /**
- * Get authentication token from localStorage
+ * Helper functions
  */
-function getAuthToken() {
-    try {
-        const session = localStorage.getItem(SESSION_KEY);
-        if (!session) return '';
-        
-        const sessionData = JSON.parse(session);
-        return sessionData.token || '';
-    } catch (e) {
-        console.error('Error retrieving token:', e);
-        return '';
+function setLoading(loading) {
+    if (loading) {
+        checkBtn.disabled = true;
+    } else {
+        checkBtn.disabled = false;
     }
 }
+
+console.log('✅ App.js loaded and ready');
