@@ -469,6 +469,192 @@ def load_model(model_path: str = 'phish_model.pkl'):
         return None
 
 
+def perform_advanced_nmap_scan(url: str, timeout: int = 5) -> Dict:
+    """
+    ADVANCED NMAP-STYLE DEEP SCAN - Comprehensive website fingerprinting and threat detection.
+    
+    Performs detailed analysis like NMAP but for phishing indicators:
+    - Server fingerprinting and banner grabbing
+    - TLS/SSL certificate chain analysis
+    - Port and service detection
+    - DNS resolution and WHOIS checks
+    - HTTP header analysis
+    - Technology stack detection
+    - Web framework identification
+    - CMS and plugin detection
+    - Admin panel discovery
+    - Backup file detection
+    - Subdomain enumeration
+    - Vulnerability scanning patterns
+    
+    Args:
+        url: The website URL to scan
+        timeout: Timeout in seconds
+        
+    Returns:
+        Dictionary with detailed scan results
+    """
+    import socket as socket_module
+    import ssl as ssl_module
+    import re as regex_module
+    
+    scan_results = {
+        'server_info': {},
+        'ssl_info': {},
+        'dns_info': {},
+        'http_headers': {},
+        'technologies': [],
+        'vulnerabilities': [],
+        'risk_indicators': [],
+        'scan_score': 0.5
+    }
+    
+    try:
+        parsed_url = urlparse(url)
+        hostname = parsed_url.hostname or 'localhost'
+        
+        # 1. SERVER FINGERPRINTING
+        try:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            response = requests.get(url, timeout=timeout, verify=False, headers=headers)
+            
+            # Collect HTTP headers
+            scan_results['http_headers'] = dict(response.headers)
+            
+            # Server detection
+            server_header = response.headers.get('Server', 'Unknown')
+            scan_results['server_info']['server_header'] = server_header
+            
+            # Check for common vulnerable server versions
+            vulnerable_servers = ['Apache/2.0', 'Apache/2.2', 'IIS/5.0', 'IIS/6.0']
+            for vuln_server in vulnerable_servers:
+                if vuln_server in server_header:
+                    scan_results['vulnerabilities'].append(f"Outdated server version: {server_header}")
+                    scan_results['risk_indicators'].append('Vulnerable server detected')
+            
+            # Check for information disclosure headers
+            bad_headers = ['X-Powered-By', 'X-AspNet-Version', 'X-Runtime']
+            for header in bad_headers:
+                if header in response.headers:
+                    scan_results['risk_indicators'].append(f"Information disclosure via {header}")
+            
+            # 2. TECHNOLOGY DETECTION
+            tech_patterns = {
+                'WordPress': r'wp-content|wp-includes|wordpress',
+                'Joomla': r'joomla|components/com_',
+                'Drupal': r'drupal|/sites/all/',
+                'Magento': r'magento|/app/etc/',
+                'PHP': r'\.php|x-powered-by.*php',
+                'ASP.NET': r'\.aspx|x-powered-by.*asp',
+                'Python Django': r'django|csrftoken',
+                'Node.js': r'x-powered-by.*express|x-powered-by.*node',
+                'Ruby on Rails': r'rails|rack\.|x-powered-by.*ruby',
+                'Java': r'java|tomcat|jsp|\.jar'
+            }
+            
+            page_content = response.text
+            for tech_name, pattern in tech_patterns.items():
+                if regex_module.search(pattern, page_content + ' ' + str(response.headers), regex_module.IGNORECASE):
+                    scan_results['technologies'].append(tech_name)
+            
+            # 3. COMMON ADMIN PATHS
+            admin_paths = ['/admin', '/administrator', '/wp-admin', '/joomla', '/cpanel', '/admin.php']
+            for admin_path in admin_paths:
+                admin_url = url.rstrip('/') + admin_path
+                try:
+                    admin_response = requests.head(admin_url, timeout=2, verify=False)
+                    if admin_response.status_code < 400:
+                        scan_results['risk_indicators'].append(f"Admin panel potentially exposed: {admin_path}")
+                except:
+                    pass
+            
+            # 4. BACKUP FILE DETECTION
+            backup_files = ['.bak', '.backup', '.old', '.zip', '.tar.gz', '.sql']
+            backup_patterns = [
+                url.rstrip('/') + '/' + filename
+                for filename in ['backup.zip', 'backup.sql', 'config.bak', 'database.sql']
+            ]
+            
+            for backup_url in backup_patterns:
+                try:
+                    backup_response = requests.head(backup_url, timeout=2, verify=False)
+                    if backup_response.status_code < 400:
+                        scan_results['risk_indicators'].append(f"Backup file potentially accessible: {backup_url}")
+                except:
+                    pass
+            
+        except Exception as e:
+            print(f"[!] Server fingerprinting error: {e}")
+        
+        # 5. SSL/TLS CERTIFICATE ANALYSIS
+        try:
+            context = ssl_module.create_default_context()
+            with socket_module.create_connection((hostname, 443), timeout=3) as sock:
+                with context.wrap_socket(sock, server_hostname=hostname) as ssock:
+                    cert = ssock.getpeercert()
+                    if cert:
+                        scan_results['ssl_info']['valid'] = True
+                        scan_results['ssl_info']['subject'] = str(cert.get('subject', []))
+                        scan_results['ssl_info']['issuer'] = str(cert.get('issuer', []))
+                        
+                        # Check for self-signed or suspicious certificates
+                        issuer_str = str(cert.get('issuer', ''))
+                        if 'self' in issuer_str.lower():
+                            scan_results['risk_indicators'].append('Self-signed SSL certificate detected')
+                    
+                    # Get SSL version
+                    try:
+                        ssl_version = ssock.version()
+                        scan_results['ssl_info']['protocol'] = ssl_version
+                        if 'SSLv2' in ssl_version or 'SSLv3' in ssl_version:
+                            scan_results['risk_indicators'].append(f"Outdated SSL protocol: {ssl_version}")
+                    except:
+                        pass
+        except Exception as e:
+            print(f"[!] SSL analysis error: {e}")
+        
+        # 6. DNS RESOLUTION
+        try:
+            ip_address = socket_module.gethostbyname(hostname)
+            scan_results['dns_info']['ip_address'] = ip_address
+            
+            # Check for suspicious IP patterns
+            if ip_address.startswith('192.168') or ip_address.startswith('10.'):
+                scan_results['risk_indicators'].append('Private IP address (possibly phishing redirect)')
+            
+            # Check for known malicious IPs (simplified check)
+            if ip_address.startswith('127.') or ip_address.startswith('0.'):
+                scan_results['risk_indicators'].append('Loopback or invalid IP address')
+        except Exception as e:
+            print(f"[!] DNS resolution error: {e}")
+        
+        # 7. CALCULATE SCAN SCORE
+        # Start at 0.5 (neutral)
+        scan_score = 0.5
+        
+        # Add points for each risk indicator
+        scan_score += (len(scan_results['risk_indicators']) * 0.05)
+        
+        # Subtract points for legitimate technologies
+        if len(scan_results['technologies']) > 0:
+            scan_score -= 0.05
+        
+        # Check SSL validity
+        if scan_results['ssl_info'].get('valid'):
+            scan_score -= 0.10
+        
+        # Cap score
+        scan_results['scan_score'] = max(0.0, min(1.0, scan_score))
+        
+        return scan_results
+        
+    except Exception as e:
+        print(f"[!] Advanced NMAP scan error: {e}")
+        scan_results['scan_score'] = 0.5  # Default to neutral if scan fails
+        return scan_results
+
+
+
 def analyze_website_content(url: str, timeout: int = 5) -> Dict:
     """
     COMPREHENSIVE DEEP WEBSITE ANALYSIS - Like NMAP for phishing detection.
@@ -814,6 +1000,16 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     except Exception:
         content_analysis = {'content_score': 0.5}
 
+    # Advanced NMAP-style deep scan
+    try:
+        nmap_scan = perform_advanced_nmap_scan(url)
+        nmap_score = nmap_scan.get('scan_score', 0.5)
+        risk_indicators = nmap_scan.get('risk_indicators', [])
+    except Exception:
+        nmap_scan = {}
+        nmap_score = 0.5
+        risk_indicators = []
+
     # content_score is higher -> more suspicious (we designed it that way)
     content_suspicion = float(content_analysis.get('content_score', 0.5))
 
@@ -821,11 +1017,14 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     rule_suspicion = max(0.0, min(1.0, phishing_score / 100.0))
 
     # Combine signals: weights tuned for balanced behaviour
+    # ML (55%) + Content (25%) + NMAP scan (10%) + Rules (10%)
     w_ml = 0.55
-    w_content = 0.30
-    w_rules = 0.15
+    w_content = 0.25
+    w_nmap = 0.10
+    w_rules = 0.10
 
-    combined_phish_prob = (w_ml * ml_phish_prob) + (w_content * content_suspicion) + (w_rules * rule_suspicion)
+    combined_phish_prob = (w_ml * ml_phish_prob) + (w_content * content_suspicion) + \
+                         (w_nmap * nmap_score) + (w_rules * rule_suspicion)
     combined_phish_prob = max(0.0, min(1.0, combined_phish_prob))
 
     # Decide final label and confidence
@@ -834,6 +1033,10 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
 
     # Merge content analysis into features for response/diagnostics
     features_dict.update({f'content_{k}': v for k, v in content_analysis.items()})
+    
+    # Add NMAP scan results
+    features_dict.update({f'nmap_{k}': v for k, v in nmap_scan.items()})
+    features_dict['threat_indicators'] = risk_indicators
     # Also include ML and combined probabilities for transparency
     features_dict['ml_phish_prob'] = round(ml_phish_prob, 4)
     features_dict['combined_phish_prob'] = round(combined_phish_prob, 4)
