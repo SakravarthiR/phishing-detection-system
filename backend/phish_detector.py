@@ -412,10 +412,34 @@ def extract_features(url: str) -> pd.DataFrame:
     return pd.DataFrame([features])
 
 
+def fix_model_attributes(model):
+    """
+    Fix monotonic_cst attribute on model and all nested estimators.
+    This handles old models that were trained with scikit-learn 1.3.2.
+    """
+    try:
+        # Fix the main model
+        if hasattr(model, 'monotonic_cst'):
+            delattr(model, 'monotonic_cst')
+        
+        # For RandomForest, fix all individual trees
+        if hasattr(model, 'estimators_'):
+            for tree in model.estimators_:
+                if tree is not None and hasattr(tree, 'monotonic_cst'):
+                    delattr(tree, 'monotonic_cst')
+        
+        print(f"[+] Model attributes fixed - removed monotonic_cst")
+        return model
+    except Exception as e:
+        print(f"[!] Warning: could not fully fix model attributes: {e}")
+        return model
+
+
 def load_model(model_path: str = 'phish_model.pkl'):
     """
     Load the trained phishing detection model from disk.
-    sklearn __setstate__ patches are already applied at module import.
+    sklearn __setstate__ patches are applied at module import.
+    Additional fixing of model instances after loading.
     
     Args:
         model_path: Path to the saved model file
@@ -431,6 +455,10 @@ def load_model(model_path: str = 'phish_model.pkl'):
         # Load with joblib (sklearn patches already applied)
         model = joblib.load(model_path)
         print(f"[+] Model loaded successfully from {model_path}")
+        
+        # Fix attributes on the loaded model instance
+        model = fix_model_attributes(model)
+        
         return model
         
     except Exception as e:
