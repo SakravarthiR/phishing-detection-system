@@ -246,7 +246,7 @@ async function checkPhishing(url) {
 function displayResults(data) {
     // Set result status
     const isPhishing = data.label === 1 || data.prediction === 'phishing';
-    const confidence = Math.round((data.probability || 0) * 100);
+    const confidence = data.confidence_percent || Math.round((data.probability || 0) * 100);
     
     // Update card appearance
     if (isPhishing) {
@@ -270,7 +270,7 @@ function displayResults(data) {
     resultClassification.textContent = isPhishing ? 'PHISHING' : 'LEGITIMATE';
     
     // Set progress bar
-    progressBar.style.width = `${confidence}%`;
+    progressBar.style.width = `${Math.min(confidence, 100)}%`;
     progressBar.style.backgroundColor = isPhishing ? '#ff0000' : '#00ff00';
     
     // Set reason
@@ -296,10 +296,10 @@ function displayResults(data) {
         threatIndicators.appendChild(badge);
     }
     
-    // Add confidence badge
+    // Add confidence level badge
     const confBadge = document.createElement('div');
     confBadge.className = 'confidence-badge';
-    confBadge.textContent = `Confidence: ${data.confidence ? data.confidence.toUpperCase() : 'UNKNOWN'}`;
+    confBadge.textContent = `Confidence: ${data.confidence_level ? data.confidence_level.toUpperCase() : 'MEDIUM'}`;
     threatIndicators.appendChild(confBadge);
     
     // Display features
@@ -376,18 +376,26 @@ function formatFeatureName(name) {
  */
 function formatFeatureValue(value) {
     if (typeof value === 'boolean') {
-        return value ? '✓ YES' : '✗ NO';
+        return value ? '[YES]' : '[NO]';
     }
     if (typeof value === 'number') {
-        // Check if it's a probability (0-1)
-        if (value >= 0 && value <= 1) {
+        // Check if it's a boolean flag (0 or 1)
+        if (value === 0 || value === 1) {
+            return value === 1 ? '[YES]' : '[NO]';
+        }
+        // Check if it's a probability/rate (0-1 range for counts)
+        if (value > 0 && value <= 1 && value !== Math.floor(value)) {
             return (value * 100).toFixed(1) + '%';
+        }
+        // Check if it's already a percentage-like value (high numbers like 100)
+        if (value >= 100) {
+            return value.toFixed(0);
         }
         // Round other numbers to 2 decimals
         return value.toFixed(2);
     }
     if (Array.isArray(value)) {
-        return value.join(', ') || '(empty)';
+        return value.join(', ') || '[EMPTY]';
     }
     return String(value);
 }

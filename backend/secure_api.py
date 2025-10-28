@@ -604,10 +604,10 @@ def predict():
             'url': sanitized_url,
             'label': label,
             'prediction': 'phishing' if label == 1 else 'legitimate',
-            'probability': round(probability, 4),
-            'probability_percent': round(probability * 100, 2),
+            'probability': round(probability, 4),  # Decimal: 0.7350
+            'confidence_percent': round(probability * 100, 2),  # Percentage: 73.50
             'reason': reason,
-            'confidence': 'high' if probability > 0.8 or probability < 0.2 else 'medium',
+            'confidence_level': 'high' if probability > 0.8 or probability < 0.2 else 'medium',
             'phishtank_verified': False,  # Not in PhishTank database
             'features': features,
             'website_status': website_status,
