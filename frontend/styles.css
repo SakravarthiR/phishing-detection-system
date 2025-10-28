@@ -1768,3 +1768,109 @@ body::after {
         width: 100%;
     }
 }
+
+/* ===== Professional Risk Assessment Badges ===== */
+.risk-level-badge,
+.recommendation-badge,
+.actions-badge,
+.website-status-badge,
+.confidence-badge,
+.phishtank-badge {
+    padding: 1rem;
+    margin: 0.5rem 0;
+    border-left: 4px solid;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: #666666;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.risk-level-badge {
+    border-left-color: inherit;
+    background-color: inherit;
+}
+
+.risk-level-badge strong {
+    display: block;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.risk-level-badge span {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+.recommendation-badge,
+.actions-badge {
+    border-left-color: inherit;
+    background-color: inherit;
+}
+
+.recommendation-badge strong,
+.actions-badge strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.actions-badge ul {
+    list-style-position: inside;
+    padding-left: 1rem;
+}
+
+.actions-badge li {
+    margin: 0.4rem 0;
+    font-size: 0.85rem;
+}
+
+.website-status-badge {
+    border-left-color: #0099ff;
+    background-color: rgba(0, 153, 255, 0.08);
+}
+
+.website-status-badge strong {
+    color: #0099ff;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.confidence-badge {
+    border-left-color: #ffaa00;
+    background-color: rgba(255, 170, 0, 0.08);
+    text-align: center;
+}
+
+.confidence-badge {
+    font-weight: bold;
+    color: #ffaa00;
+    letter-spacing: 1px;
+}
+
+.phishtank-badge {
+    border-left-color: #ff0000;
+    background-color: rgba(255, 0, 0, 0.08);
+}
+
+.phishtank-badge strong {
+    color: #ff0000;
+    text-transform: uppercase;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

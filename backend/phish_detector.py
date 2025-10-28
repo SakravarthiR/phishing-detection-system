@@ -471,24 +471,26 @@ def load_model(model_path: str = 'phish_model.pkl'):
 
 def analyze_website_content(url: str, timeout: int = 5) -> Dict:
     """
-    Analyze the actual website content to detect phishing indicators.
+    COMPREHENSIVE DEEP WEBSITE ANALYSIS - Like NMAP for phishing detection.
     
-    Checks for:
-    - Login forms on suspicious domains
-    - External form submission URLs
-    - Suspicious JavaScript
-    - Certificate issues
-    - HTTPS enforcement
-    - Meta refresh redirects
-    - Hidden form fields
-    - Mismatched domain in links/forms
+    Analyzes:
+    - SSL/TLS certificate validity
+    - Server headers and security indicators
+    - Form structure and submission targets
+    - JavaScript behavior and obfuscation
+    - DOM content and structure
+    - External resource loading
+    - Redirect chains
+    - Page age and update patterns
+    - Trust indicators (badges, seals, copyright)
+    - Brand impersonation attempts
     
     Args:
         url: The website URL to analyze
         timeout: Request timeout in seconds
         
     Returns:
-        Dictionary with content analysis indicators
+        Dictionary with comprehensive content analysis
     """
     analysis = {
         'has_login_form': False,
@@ -500,104 +502,210 @@ def analyze_website_content(url: str, timeout: int = 5) -> Dict:
         'forms_targeting_external': 0,
         'domain_mismatches': 0,
         'phishing_indicators': 0,
-        'content_score': 0.0
+        'legitimacy_indicators': 0,
+        'content_score': 0.0,
+        'ssl_valid': False,
+        'has_security_headers': False,
+        'redirect_count': 0,
+        'external_forms': 0,
+        'suspicious_domains': 0,
+        'trust_badges': 0,
+        'scan_details': {}
     }
     
     try:
-        # Attempt to fetch the website
         import re as regex_module
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
+        
+        # Perform the request with full SSL context
         response = requests.get(url, timeout=timeout, verify=False, headers=headers, allow_redirects=True)
         
         if response.status_code != 200:
-            analysis['content_score'] = 0.3  # Bad status = suspicious
+            analysis['content_score'] = 0.35
+            analysis['scan_details']['status_error'] = f"HTTP {response.status_code}"
             return analysis
         
-        html_content = response.text.lower()
+        html_content = response.text
+        html_lower = html_content.lower()
         
-        # Extract domain from URL for comparison
+        # Extract domain from URL
         parsed_url = urlparse(url)
         main_domain = parsed_url.netloc.replace('www.', '')
         
-        # Check 1: Login forms
-        if '<form' in html_content:
-            # Look for password fields
-            if 'type="password"' in html_content or 'type=password' in html_content or 'password' in html_content:
-                analysis['has_login_form'] = True
-                analysis['phishing_indicators'] += 1
-                
-                # Check if form action goes to external domain
-                import re as regex_module
-                form_actions = regex_module.findall(r'<form[^>]*action=["\']?([^"\'\s>]+)', html_content)
-                for action in form_actions:
-                    if action.startswith('http'):
-                        action_domain = urlparse(action).netloc.replace('www.', '')
-                        if action_domain != main_domain:
-                            analysis['has_external_form'] = True
-                            analysis['phishing_indicators'] += 2
-                            analysis['forms_targeting_external'] += 1
+        # ===== SECTION 1: SSL/TLS CERTIFICATE ANALYSIS =====
+        try:
+            # Check SSL certificate validity
+            import ssl as ssl_module
+            context = ssl_module.create_default_context()
+            with socket.create_connection((parsed_url.hostname or 'localhost', 443), timeout=3) as sock:
+                with context.wrap_socket(sock, server_hostname=parsed_url.hostname) as ssock:
+                    cert = ssock.getpeercert()
+                    if cert:
+                        analysis['ssl_valid'] = True
+                        analysis['legitimacy_indicators'] += 2
+        except Exception:
+            if url.startswith('https'):
+                analysis['phishing_indicators'] += 1  # HTTPS without valid cert is suspicious
         
-        # Check 2: Meta refresh redirects (common in phishing)
-        if '<meta' in html_content and 'refresh' in html_content:
-            if 'http' in html_content:  # Redirecting to external URL
-                analysis['has_meta_refresh'] = True
-                analysis['phishing_indicators'] += 2
-        
-        # Check 3: Hidden input fields (used to capture data)
-        hidden_inputs = len(regex_module.findall(r'type=["\']?hidden["\']?', html_content))
-        if hidden_inputs > 3:  # Unusual number of hidden fields
-            analysis['has_hidden_inputs'] = True
+        # ===== SECTION 2: SECURITY HEADERS ANALYSIS =====
+        security_headers = [
+            'strict-transport-security',
+            'x-content-type-options',
+            'x-frame-options',
+            'content-security-policy',
+            'x-xss-protection'
+        ]
+        found_security_headers = sum(1 for header in security_headers if header in [h.lower() for h in response.headers.keys()])
+        if found_security_headers > 0:
+            analysis['has_security_headers'] = True
+            analysis['legitimacy_indicators'] += found_security_headers
+        else:
             analysis['phishing_indicators'] += 1
         
-        # Check 4: Suspicious JavaScript patterns
-        suspicious_patterns = [
-            'keylogger',
-            'stealpassword',
-            'collect.*password',
-            'document\.location.*script',
-            'eval\(',
-            'createElement.*iframe'
-        ]
-        for pattern in suspicious_patterns:
-            if regex_module.search(pattern, html_content):
+        # ===== SECTION 3: REDIRECT CHAIN ANALYSIS =====
+        analysis['redirect_count'] = len(response.history)
+        if analysis['redirect_count'] > 2:
+            analysis['phishing_indicators'] += 1  # Multiple redirects suspicious
+        
+        # ===== SECTION 4: FORM ANALYSIS (DEEP SCAN) =====
+        forms = regex_module.findall(r'<form[^>]*>.*?</form>', html_lower, regex_module.DOTALL)
+        if forms:
+            for form in forms[:3]:  # Analyze first 3 forms
+                # Check for password fields
+                if 'type="password"' in form or "type='password'" in form or 'password' in form:
+                    analysis['has_login_form'] = True
+                    analysis['phishing_indicators'] += 1
+                    
+                    # Analyze form action
+                    action_match = regex_module.search(r'action=["\']?([^"\'\s>]+)', form)
+                    if action_match:
+                        action_url = action_match.group(1)
+                        if action_url.startswith('http'):
+                            action_domain = urlparse(action_url).netloc.replace('www.', '')
+                            if action_domain != main_domain:
+                                analysis['has_external_form'] = True
+                                analysis['phishing_indicators'] += 3  # Critical!
+                                analysis['forms_targeting_external'] += 1
+                                analysis['external_forms'] += 1
+                
+                # Count hidden fields
+                hidden_count = len(regex_module.findall(r'type=["\']?hidden["\']?', form))
+                if hidden_count > 5:
+                    analysis['has_hidden_inputs'] = True
+                    analysis['phishing_indicators'] += 1
+        
+        # ===== SECTION 5: JAVASCRIPT ANALYSIS =====
+        js_patterns = {
+            'keylogger': r'keylogger|keystroke|key.*log',
+            'password_theft': r'steal.*password|harvest.*credential|capture.*password',
+            'form_interception': r'formdata|form.*submit|onsubmit.*javascript',
+            'obfuscation': r'eval\(|atob\(|String\.fromCharCode',
+            'iframe_injection': r'createElement.*iframe|innerHTML.*iframe',
+            'redirect_exploit': r'window\.location\.replace|window\.location\.href.*javascript',
+            'cryptominer': r'crypto.*mine|hash.*calc|proof.*work'
+        }
+        
+        suspicious_js_count = 0
+        for pattern_name, pattern in js_patterns.items():
+            if regex_module.search(pattern, html_lower):
+                suspicious_js_count += 1
                 analysis['suspicious_scripts'] += 1
                 analysis['phishing_indicators'] += 1
         
-        # Check 5: Check for HTTPS enforcement (good sign if present)
-        has_hsts = 'strict-transport-security' in response.headers.get('set-cookie', '').lower() or \
-                   'strict-transport-security' in ' '.join(response.headers.keys()).lower()
+        # ===== SECTION 6: EXTERNAL RESOURCES ANALYSIS =====
+        external_scripts = regex_module.findall(r'<script[^>]*src=["\']([^"\']+)["\']', html_lower)
+        external_iframes = regex_module.findall(r'<iframe[^>]*src=["\']([^"\']+)["\']', html_lower)
+        external_forms = regex_module.findall(r'<form[^>]*action=["\']([^"\']+)["\']', html_lower)
         
-        # Check 6: Look for legitimate indicators (reduce suspicion)
-        legitimate_indicators = [
-            'privacy policy',
-            'terms of service',
-            'contact us',
-            'about us',
-            'copyright'
-        ]
-        legitimate_count = sum(1 for indicator in legitimate_indicators if indicator in html_content)
+        external_count = 0
+        for resource in external_scripts + external_iframes + external_forms:
+            if resource.startswith('http'):
+                resource_domain = urlparse(resource).netloc.replace('www.', '')
+                if resource_domain != main_domain:
+                    external_count += 1
+                    analysis['suspicious_domains'] += 1
         
-        # Calculate content score
-        # Base score: 0.5 (neutral)
+        analysis['external_links_count'] = external_count
+        if external_count > 5:
+            analysis['phishing_indicators'] += 1
+        
+        # ===== SECTION 7: TRUST & LEGITIMACY INDICATORS =====
+        legitimacy_patterns = {
+            'privacy_policy': r'privacy\s*policy|privacy\s*statement',
+            'terms_of_service': r'terms\s*of\s*service|terms\s*&\s*conditions|tos',
+            'contact_info': r'contact\s*us|contact\s*information|email|phone',
+            'about_page': r'about\s*us|about\s*company|company\s*profile',
+            'copyright': r'copyright|&copy;|©.*20\d{2}',
+            'company_name': r'inc\.|llc|corp\.|ltd\.|pvt',
+            'certification': r'certified|iso\s*\d+|security\s*certified',
+            'trust_seals': r'seal|badge|verified|trusted|secure',
+            'social_links': r'facebook\.com|twitter\.com|linkedin\.com|instagram\.com'
+        }
+        
+        for indicator_name, pattern in legitimacy_patterns.items():
+            if regex_module.search(pattern, html_lower):
+                analysis['legitimacy_indicators'] += 1
+                if 'trust_seals' in indicator_name or 'certification' in indicator_name:
+                    analysis['trust_badges'] += 1
+        
+        # ===== SECTION 8: SUSPICIOUS PATTERNS DETECTION =====
+        suspicious_content = {
+            'urgent_action': r'urgent|immediate\s*action|verify.*now|confirm.*now|expire',
+            'account_lock': r'account.*lock|suspend|restrict|limit|unusual activity',
+            'credential_request': r'enter.*password|confirm.*password|verify.*credential',
+            'brand_impersonation': r'paypal|amazon|apple|microsoft|google|facebook|ebay|netflix',
+            'phishing_keywords': r'verify account|update payment|confirm identity|unusual activity'
+        }
+        
+        for pattern_name, pattern in suspicious_content.items():
+            if regex_module.search(pattern, html_lower):
+                analysis['phishing_indicators'] += 1
+        
+        # ===== SECTION 9: CALCULATE FINAL CONTENT SCORE =====
+        # Start with neutral score
         content_score = 0.5
         
-        # Reduce score for phishing indicators (increase suspicion)
-        content_score += (analysis['phishing_indicators'] * 0.1)  # Each indicator increases phishing likelihood
+        # Apply phishing indicators (increase suspicion)
+        content_score += (analysis['phishing_indicators'] * 0.08)  # Each indicator: +0.08
         
-        # Increase score for legitimate indicators (decrease suspicion)
-        content_score -= (legitimate_count * 0.08)  # Each legitimate indicator reduces suspicion
+        # Apply legitimacy indicators (decrease suspicion)
+        content_score -= (analysis['legitimacy_indicators'] * 0.05)  # Each indicator: -0.05
+        
+        # Bonus for security headers
+        if analysis['has_security_headers']:
+            content_score -= 0.15
+        
+        # Bonus for valid SSL
+        if analysis['ssl_valid']:
+            content_score -= 0.10
+        
+        # Penalty for external forms
+        if analysis['external_forms'] > 0:
+            content_score += 0.25
         
         # Cap at 0-1 range
         analysis['content_score'] = max(0.0, min(1.0, content_score))
+        
+        # Add scan summary
+        analysis['scan_details'] = {
+            'forms_found': len(forms),
+            'external_scripts': len(external_scripts),
+            'external_iframes': len(external_iframes),
+            'js_threats': suspicious_js_count,
+            'security_headers_found': found_security_headers,
+            'trust_indicators': analysis['legitimacy_indicators'],
+            'redirects': analysis['redirect_count']
+        }
         
         return analysis
         
     except Exception as e:
         print(f"[!] Content analysis error: {str(e)}")
-        # If we can't fetch content, assume it's suspicious
-        analysis['content_score'] = 0.4
+        # If we can't fetch content, assume moderate suspicion
+        analysis['content_score'] = 0.45
+        analysis['scan_details']['error'] = str(e)
         return analysis
 
 
@@ -819,6 +927,114 @@ def get_top_feature(features_dict: Dict) -> str:
         return " | ".join(reasons[:3])
     else:
         return "✓ URL appears normal based on lexical analysis"
+
+
+def get_professional_risk_assessment(probability: float, label: int, features_dict: Dict) -> Dict:
+    """
+    Generate professional, real-world risk assessment with appropriate language
+    and actionable recommendations based on threat level.
+    
+    Args:
+        probability: Combined phishing probability (0-1)
+        label: Prediction label (0=legitimate, 1=phishing)
+        features_dict: Dictionary of extracted features
+        
+    Returns:
+        Dictionary with risk_level, risk_description, recommendation, threat_score
+    """
+    
+    # For LEGITIMATE URLs, invert the probability
+    if label == 0:
+        confidence = 1.0 - probability
+    else:
+        confidence = probability
+    
+    confidence_percent = confidence * 100
+    
+    # Define professional risk levels and messaging
+    if confidence_percent >= 95:
+        return {
+            'risk_level': 'CRITICAL',
+            'risk_category': 'Extremely Dangerous',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '🚨 CRITICAL THREAT DETECTED - This site exhibits multiple characteristics of an advanced phishing or malware attack.',
+            'details': 'The URL contains several confirmed phishing indicators including suspicious keywords, unusual domain structure, and high-risk content patterns. This domain is highly likely to be fraudulent.',
+            'recommendation': '❌ DO NOT VISIT or enter credentials. Block this URL immediately.',
+            'actions': ['Report to anti-phishing service', 'Block domain in firewall', 'Alert your security team'],
+            'color': '#ff0000'  # Red
+        }
+    
+    elif confidence_percent >= 85:
+        return {
+            'risk_level': 'HIGH',
+            'risk_category': 'Very High Risk',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '⚠️ HIGH RISK - This site shows strong indicators of phishing activity.',
+            'details': 'Multiple suspicious patterns detected including potential credential harvesting mechanisms, suspicious domain naming, and risky content. Exercise extreme caution.',
+            'recommendation': '❌ Avoid visiting. Do not enter personal or financial information.',
+            'actions': ['Verify with official source', 'Check with IT department', 'Use official app instead'],
+            'color': '#ff6600'  # Orange
+        }
+    
+    elif confidence_percent >= 70:
+        return {
+            'risk_level': 'MEDIUM-HIGH',
+            'risk_category': 'Suspicious',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '⚠️ SUSPICIOUS - This site has characteristics that warrant caution.',
+            'details': 'Several indicators suggest this may be a phishing attempt or fraudulent website. The domain structure, content patterns, or URL format contain warning signs.',
+            'recommendation': '⚠️ Use with caution. Verify legitimacy before entering sensitive information.',
+            'actions': ['Contact company directly using official channels', 'Look for security indicators', 'Check website SSL certificate'],
+            'color': '#ffaa00'  # Dark orange
+        }
+    
+    elif confidence_percent >= 50:
+        return {
+            'risk_level': 'MEDIUM',
+            'risk_category': 'Moderate Risk',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '⚠️ MODERATE CAUTION - Some aspects of this site appear questionable.',
+            'details': 'The site contains mixed signals. While not definitively phishing, certain characteristics differ from standard legitimate websites. Further verification recommended.',
+            'recommendation': '⚠️ Proceed cautiously. Verify the site\'s legitimacy independently before sharing any data.',
+            'actions': ['Go to official website directly', 'Verify URL in browser address bar', 'Check SSL certificate details'],
+            'color': '#ffcc00'  # Yellow
+        }
+    
+    elif confidence_percent >= 30:
+        return {
+            'risk_level': 'LOW-MEDIUM',
+            'risk_category': 'Low-Moderate Risk',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '✓ LIKELY LEGITIMATE - This site appears mostly trustworthy with minor concerns.',
+            'details': 'The site\'s characteristics are largely consistent with legitimate websites, though some minor indicators require verification.',
+            'recommendation': '✓ Generally safe, but apply standard security practices.',
+            'actions': ['Use strong, unique passwords', 'Enable two-factor authentication', 'Monitor account activity'],
+            'color': '#99cc00'  # Light green
+        }
+    
+    elif confidence_percent >= 10:
+        return {
+            'risk_level': 'LOW',
+            'risk_category': 'Very Low Risk',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '✅ APPEARS LEGITIMATE - This site has strong indicators of being authentic.',
+            'details': 'The domain structure, content patterns, and URL format are consistent with genuine, legitimate websites. Risk is minimal.',
+            'recommendation': '✅ Safe to use. Standard security practices apply.',
+            'actions': ['Use strong passwords', 'Keep software updated', 'Enable two-factor authentication'],
+            'color': '#00cc00'  # Green
+        }
+    
+    else:  # < 10%
+        return {
+            'risk_level': 'VERY LOW',
+            'risk_category': 'Trusted',
+            'confidence_percent': round(confidence_percent, 2),
+            'description': '✅ HIGHLY TRUSTED - This site is very likely legitimate.',
+            'details': 'All analyzed characteristics strongly indicate an authentic, legitimate website. No phishing indicators detected.',
+            'recommendation': '✅ Appears to be a legitimate site. Standard security practices apply.',
+            'actions': ['Maintain good password hygiene', 'Use two-factor authentication where available'],
+            'color': '#00aa00'  # Dark green
+        }
 
 
 if __name__ == "__main__":

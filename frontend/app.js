@@ -251,42 +251,93 @@ function displayResults(data) {
     // Ensure confidence is between 0-100
     const displayConfidence = Math.max(0, Math.min(100, confidence));
     
-    // Update card appearance
-    if (isPhishing) {
-        resultHeader.style.borderLeftColor = '#ff0000';
-        resultIcon.textContent = '🚨';
-        resultLabel.textContent = 'PHISHING DETECTED';
-        resultLabel.style.color = '#ff0000';
-        resultsCard.style.borderColor = '#ff0000';
-    } else {
-        resultHeader.style.borderLeftColor = '#00ff00';
-        resultIcon.textContent = '✅';
-        resultLabel.textContent = 'LEGITIMATE';
-        resultLabel.style.color = '#00ff00';
-        resultsCard.style.borderColor = '#00ff00';
-    }
+    // Use professional risk assessment if available
+    const riskData = data.risk_assessment || {};
+    const riskLevel = riskData.risk_level || 'UNKNOWN';
+    const riskCategory = riskData.risk_category || 'Analysis Pending';
+    const riskDescription = riskData.description || 'Analysis completed';
+    const riskDetails = riskData.details || '';
+    const riskRecommendation = riskData.recommendation || '';
+    const riskColor = riskData.color || '#666666';
+    
+    // Update card appearance with professional colors
+    resultHeader.style.borderLeftColor = riskColor;
+    resultIcon.textContent = riskData.risk_level && riskData.risk_level.includes('CRITICAL') ? '🚨' : 
+                              riskData.risk_level && riskData.risk_level.includes('HIGH') ? '⚠️' :
+                              riskData.risk_level && riskData.risk_level.includes('MEDIUM') ? '⚠️' :
+                              riskData.risk_level && riskData.risk_level.includes('LOW') ? '✓' :
+                              isPhishing ? '🚨' : '✅';
+    
+    // Professional title
+    resultLabel.textContent = riskCategory || (isPhishing ? 'PHISHING' : 'LEGITIMATE');
+    resultLabel.style.color = riskColor;
+    resultsCard.style.borderColor = riskColor;
     
     // Set result details
     resultUrl.textContent = data.url;
     resultUrl.title = data.url;
     resultProbability.textContent = `${displayConfidence}%`;
-    resultClassification.textContent = isPhishing ? 'PHISHING' : 'LEGITIMATE';
+    resultClassification.textContent = riskDescription;
     
-    // Set progress bar
+    // Set progress bar with professional color
     progressBar.style.width = `${displayConfidence}%`;
-    progressBar.style.backgroundColor = isPhishing ? '#ff0000' : '#00ff00';
+    progressBar.style.backgroundColor = riskColor;
     
-    // Set reason
-    resultReason.textContent = data.reason || 'Analysis completed. URL appears to be legitimate based on available intelligence.';
+    // Set detailed reason
+    resultReason.textContent = riskDetails || data.reason || 'Analysis completed. URL appears to be legitimate based on available intelligence.';
     
     // Clear threat indicators
     threatIndicators.innerHTML = '';
+    
+    // Add risk level badge
+    if (riskData.risk_level) {
+        const riskBadge = document.createElement('div');
+        riskBadge.className = 'risk-level-badge';
+        riskBadge.style.borderLeftColor = riskColor;
+        riskBadge.style.backgroundColor = riskColor + '15';  // 15% opacity
+        riskBadge.innerHTML = `
+            <strong style="color: ${riskColor}">THREAT LEVEL:</strong> 
+            <span>${riskData.risk_level}</span>
+            <div style="font-size: 0.9em; margin-top: 4px; color: #666;">${riskData.risk_category}</div>
+        `;
+        threatIndicators.appendChild(riskBadge);
+    }
+    
+    // Add recommendation badge
+    if (riskRecommendation) {
+        const recBadge = document.createElement('div');
+        recBadge.className = 'recommendation-badge';
+        recBadge.style.borderLeftColor = riskColor;
+        recBadge.style.backgroundColor = riskColor + '15';
+        recBadge.innerHTML = `
+            <strong style="color: ${riskColor}">RECOMMENDATION:</strong> 
+            <div>${riskRecommendation}</div>
+        `;
+        threatIndicators.appendChild(recBadge);
+    }
+    
+    // Add actions if available
+    if (riskData.actions && Array.isArray(riskData.actions) && riskData.actions.length > 0) {
+        const actionsBadge = document.createElement('div');
+        actionsBadge.className = 'actions-badge';
+        actionsBadge.style.borderLeftColor = riskColor;
+        actionsBadge.style.backgroundColor = riskColor + '15';
+        let actionsHtml = '<strong style="color: ' + riskColor + '">SUGGESTED ACTIONS:</strong><ul style="margin: 8px 0;">';
+        riskData.actions.forEach(action => {
+            actionsHtml += `<li style="margin: 4px 0; font-size: 0.9em;">${action}</li>`;
+        });
+        actionsHtml += '</ul>';
+        actionsBadge.innerHTML = actionsHtml;
+        threatIndicators.appendChild(actionsBadge);
+    }
     
     // Add PhishTank badge if verified
     if (data.phishtank_verified && data.phishtank_data) {
         const badge = document.createElement('div');
         badge.className = 'phishtank-badge';
-        badge.innerHTML = `<strong>[PhishTank]</strong> Verified phishing site - ID: ${data.phishtank_data.phish_id}`;
+        badge.style.borderLeftColor = '#ff0000';
+        badge.style.backgroundColor = '#ff000015';
+        badge.innerHTML = `<strong style="color: #ff0000">[PhishTank]</strong> Verified phishing site - ID: ${data.phishtank_data.phish_id}`;
         threatIndicators.appendChild(badge);
     }
     
@@ -297,7 +348,10 @@ function displayResults(data) {
         const isReachable = data.website_status.is_reachable || data.website_status.is_live;
         const statusCode = data.website_status.status_code || '---';
         const serverStatus = isReachable ? 'Online' : 'Offline';
-        badge.innerHTML = `<strong>Server Status:</strong> ${serverStatus} (HTTP ${statusCode})`;
+        badge.style.borderLeftColor = '#0099ff';
+        badge.style.backgroundColor = '#0099ff15';
+        badge.innerHTML = `<strong style="color: #0099ff">Server Status:</strong> ${serverStatus} (HTTP ${statusCode})`;
+
         threatIndicators.appendChild(badge);
     }
     

@@ -46,7 +46,8 @@ from phish_detector import (
     predict_url,
     get_top_feature,
     extract_subdomain_info,
-    check_website_live
+    check_website_live,
+    get_professional_risk_assessment
 )
 
 # Import PhishTank integration
@@ -537,14 +538,18 @@ def predict():
             # Check website status
             website_status = check_website_live(sanitized_url, timeout=5)
             
+            # Get risk assessment for verified phishing
+            risk_assessment = get_professional_risk_assessment(0.99, 1, {})
+            
             response = {
                 'url': sanitized_url,
                 'label': 1,  # Phishing
                 'prediction': 'phishing',
-                'probability': 0.99,  # Very high confidence
-                'probability_percent': 99.0,
+                'probability': 0.99,  # Very high confidence in phishing
+                'confidence_percent': 99.0,  # 99% confident it's phishing
                 'reason': f"⚠️ VERIFIED PHISHING by PhishTank | Target: {phishtank_result['target']} | Phish ID: {phishtank_result['phish_id']}",
-                'confidence': 'very_high',
+                'confidence_level': 'high',
+                'risk_assessment': risk_assessment,  # Professional risk evaluation
                 'phishtank_verified': True,
                 'phishtank_data': {
                     'phish_id': phishtank_result['phish_id'],
@@ -600,18 +605,34 @@ def predict():
             reason = f"Prediction: {'phishing' if label == 1 else 'legitimate'}"
         
         # Prepare response
-        # Ensure probability is in valid range (0-1)
+        # The probability from predict_url is already confidence (inverted for legit URLs in phish_detector.py)
+        # For phishing (label=1): probability = combined_phish_prob
+        # For legitimate (label=0): probability = 1.0 - combined_phish_prob (already inverted!)
         safe_probability = max(0.0, min(1.0, probability))
-        confidence_percent = round(safe_probability * 100, 2)
+        
+        # Use the confidence as-is (it's already properly inverted by predict_url)
+        display_confidence = safe_probability
+        confidence_percent = round(display_confidence * 100, 2)
+        
+        # For risk assessment, we need the raw phishing probability (not inverted)
+        # Invert it back if this is a legitimate site
+        if label == 0:
+            raw_phishing_prob = 1.0 - safe_probability
+        else:
+            raw_phishing_prob = safe_probability
+        
+        # Get professional risk assessment
+        risk_assessment = get_professional_risk_assessment(raw_phishing_prob, label, features)
         
         response = {
             'url': sanitized_url,
             'label': label,
             'prediction': 'phishing' if label == 1 else 'legitimate',
-            'probability': round(safe_probability, 4),  # Decimal: 0.7350
-            'confidence_percent': confidence_percent,  # Percentage: 73.50 (capped at 100)
+            'probability': round(safe_probability, 4),  # Confidence in the prediction
+            'confidence_percent': confidence_percent,  # Confidence percentage (0-100)
             'reason': reason,
-            'confidence_level': 'high' if safe_probability > 0.8 or safe_probability < 0.2 else 'medium',
+            'confidence_level': 'high' if display_confidence > 0.8 else ('low' if display_confidence < 0.2 else 'medium'),
+            'risk_assessment': risk_assessment,  # Professional risk evaluation
             'phishtank_verified': False,  # Not in PhishTank database
             'features': features,
             'website_status': website_status,
