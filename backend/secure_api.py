@@ -567,15 +567,37 @@ def predict():
             return jsonify(response), 200
         
         # Not in PhishTank, proceed with ML prediction
-        # Make prediction
-        label, probability, features = predict_url(sanitized_url, model)
+        try:
+            # Make prediction
+            logger.info(f"Calling predict_url() for: {sanitized_url}")
+            label, probability, features = predict_url(sanitized_url, model)
+            logger.info(f"✅ Prediction complete: label={label}, prob={probability}")
+        except Exception as e:
+            logger.error(f"❌ Prediction error: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
+            traceback.print_exc()
+            return jsonify({
+                'error': 'Prediction failed',
+                'message': f'Failed to predict: {str(e)}'
+            }), 500
         
         # Check website status
-        logger.info(f"Checking website status: {sanitized_url}")
-        website_status = check_website_live(sanitized_url, timeout=5)
+        try:
+            logger.info(f"Checking website status: {sanitized_url}")
+            website_status = check_website_live(sanitized_url, timeout=5)
+            logger.info(f"✅ Website status checked")
+        except Exception as e:
+            logger.error(f"⚠️ Website status check error: {str(e)}")
+            website_status = {'is_live': False, 'error': str(e)}
         
         # Get explanation
-        reason = get_top_feature(features)
+        try:
+            logger.info(f"Getting top feature explanation")
+            reason = get_top_feature(features)
+            logger.info(f"✅ Reason: {reason}")
+        except Exception as e:
+            logger.error(f"⚠️ Feature explanation error: {str(e)}")
+            reason = f"Prediction: {'phishing' if label == 1 else 'legitimate'}"
         
         # Prepare response
         response = {
@@ -598,14 +620,16 @@ def predict():
             'INFO'
         )
         
+        logger.info(f"✅ Returning prediction response")
         return jsonify(response), 200
     
     except Exception as e:
-        logger.error(f"Prediction error: {str(e)}")
+        logger.error(f"❌ Prediction endpoint error: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
         traceback.print_exc()
         return jsonify({
             'error': 'Prediction failed',
-            'message': 'An error occurred while analyzing the URL'
+            'message': f'An error occurred: {str(e)}'
         }), 500
 
 
