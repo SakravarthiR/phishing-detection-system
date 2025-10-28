@@ -352,6 +352,147 @@ function displayResults(data) {
         threatIndicators.innerHTML = threatHTML;
     }
     
+    // Add threat detail tables for advanced threat detection data
+    const threatDetails = document.createElement('div');
+    threatDetails.className = 'threat-details-tables';
+    
+    // Threat Indicators
+    if (data.features && data.features.threat_indicators && Array.isArray(data.features.threat_indicators) && data.features.threat_indicators.length > 0) {
+        const indicatorsTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">Threat Indicators</h4>
+                <table class="threat-table">
+                    <tbody>
+                        ${data.features.threat_indicators.map((indicator, idx) => `<tr><td class="indicator-item">${indicator}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += indicatorsTable;
+    }
+    
+    // Risk Indicators
+    if (data.features && data.features.threat_risk_indicators && Array.isArray(data.features.threat_risk_indicators) && data.features.threat_risk_indicators.length > 0) {
+        const riskTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">Risk Indicators</h4>
+                <table class="threat-table">
+                    <tbody>
+                        ${data.features.threat_risk_indicators.map((indicator, idx) => `<tr><td class="indicator-item">${indicator}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += riskTable;
+    }
+    
+    // Threat Scan Score
+    if (data.features && data.features.threat_scan_score !== undefined && data.features.threat_scan_score !== null) {
+        const scanScoreTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">Threat Scan Score</h4>
+                <table class="threat-table">
+                    <tbody>
+                        <tr><td class="score-label">Overall Risk Score:</td><td class="score-value">${(data.features.threat_scan_score * 100).toFixed(1)}%</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += scanScoreTable;
+    }
+    
+    // Technologies Detected
+    if (data.features && data.features.threat_technologies && Array.isArray(data.features.threat_technologies) && data.features.threat_technologies.length > 0) {
+        const techTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">Technologies Detected</h4>
+                <table class="threat-table">
+                    <tbody>
+                        ${data.features.threat_technologies.map((tech, idx) => `<tr><td class="tech-item">${tech}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += techTable;
+    }
+    
+    // HTTP Headers
+    if (data.features && data.features.threat_http_headers && typeof data.features.threat_http_headers === 'object' && Object.keys(data.features.threat_http_headers).length > 0) {
+        const headerRows = Object.entries(data.features.threat_http_headers).map(([key, value]) => 
+            `<tr><td class="header-key">${key}</td><td class="header-value">${String(value).substring(0, 50)}</td></tr>`
+        ).join('');
+        const headersTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">HTTP Headers</h4>
+                <table class="threat-table">
+                    <thead><tr><th>Header</th><th>Value</th></tr></thead>
+                    <tbody>
+                        ${headerRows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += headersTable;
+    }
+    
+    // SSL Certificate Info
+    if (data.features && data.features.threat_ssl_info && typeof data.features.threat_ssl_info === 'object' && Object.keys(data.features.threat_ssl_info).length > 0) {
+        const sslRows = Object.entries(data.features.threat_ssl_info).map(([key, value]) => 
+            `<tr><td class="ssl-key">${key}</td><td class="ssl-value">${String(value).substring(0, 50)}</td></tr>`
+        ).join('');
+        const sslTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">SSL/TLS Certificate</h4>
+                <table class="threat-table">
+                    <thead><tr><th>Property</th><th>Value</th></tr></thead>
+                    <tbody>
+                        ${sslRows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += sslTable;
+    }
+    
+    // Server Information
+    if (data.features && data.features.threat_server_info && typeof data.features.threat_server_info === 'object' && Object.keys(data.features.threat_server_info).length > 0) {
+        const serverRows = Object.entries(data.features.threat_server_info).map(([key, value]) => 
+            `<tr><td class="server-key">${key}</td><td class="server-value">${String(value).substring(0, 50)}</td></tr>`
+        ).join('');
+        const serverTable = `
+            <div class="threat-table-section">
+                <h4 class="threat-table-title">Server Information</h4>
+                <table class="threat-table">
+                    <thead><tr><th>Property</th><th>Value</th></tr></thead>
+                    <tbody>
+                        ${serverRows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += serverTable;
+    }
+    
+    // Vulnerabilities (if any)
+    if (data.features && data.features.threat_vulnerabilities && Array.isArray(data.features.threat_vulnerabilities) && data.features.threat_vulnerabilities.length > 0) {
+        const vulnTable = `
+            <div class="threat-table-section threat-vulnerability-section">
+                <h4 class="threat-table-title">Vulnerabilities Detected</h4>
+                <table class="threat-table">
+                    <tbody>
+                        ${data.features.threat_vulnerabilities.map((vuln, idx) => `<tr><td class="vulnerability-item">${vuln}</td></tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        threatDetails.innerHTML += vulnTable;
+    }
+    
+    // Append threat details tables if any content was added
+    if (threatDetails.innerHTML.trim()) {
+        threatIndicators.appendChild(threatDetails);
+    }
+    
     // Add PhishTank badge if verified (separate)
     if (data.phishtank_verified && data.phishtank_data) {
         const badge = document.createElement('div');
