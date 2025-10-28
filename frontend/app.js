@@ -121,17 +121,20 @@ async function checkURL() {
     
     // Validate input
     if (!url) {
+        console.warn('⚠️ No URL provided');
         alert('Please enter a URL');
         return;
     }
     
-    console.log(`Checking URL: ${url}`);
+    console.log('🔍 Checking URL:', url);
     
     // Add protocol if missing
     let fullURL = url;
     if (!url.match(/^https?:\/\//)) {
         fullURL = 'https://' + url;
     }
+    
+    console.log('📨 Full URL:', fullURL);
     
     // Update UI
     hideError();
@@ -141,12 +144,19 @@ async function checkURL() {
     
     try {
         // Get auth token
+        const token = getAuthToken();
+        console.log('🔐 Token:', token ? 'Present' : 'Missing');
+        
+        // Call API
+        console.log('📞 Calling checkPhishing()...');
         const result = await checkPhishing(fullURL);
         
         // Display results
+        console.log('✅ Result received, displaying...');
         displayResults(result);
         
     } catch (error) {
+        console.error('❌ Error in checkURL:', error.message);
         showError(error.message);
     } finally {
         setLoading(false);
@@ -183,6 +193,8 @@ async function checkPhishing(url) {
         
         clearTimeout(timeoutId);
         
+        console.log('📊 Response status:', response.status);
+        
         // If auth fails, redirect to login
         if (response.status === 401 && USE_SECURE_API) {
             console.warn('Token expired - back to login');
@@ -191,14 +203,27 @@ async function checkPhishing(url) {
         }
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Analysis failed');
+            console.error('❌ API Error:', response.status, response.statusText);
+            let errorMsg = `Error: ${response.status} ${response.statusText}`;
+            
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.message || errorData.error || errorMsg;
+                console.error('Error data:', errorData);
+            } catch (e) {
+                console.error('Could not parse error response');
+                // Response might not be JSON, that's ok
+            }
+            
+            throw new Error(errorMsg);
         }
         
         const data = await response.json();
+        console.log('✅ API Response received:', data);
         return data;
         
     } catch (error) {
+        console.error('Exception caught:', error.name, error.message);
         if (error.name === 'AbortError') {
             throw new Error('Request took too long - please try again');
         }
