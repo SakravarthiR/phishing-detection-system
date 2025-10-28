@@ -84,7 +84,216 @@ function init() {
         dismissError.addEventListener('click', hideError);
     }
     
+    // Initialize session management with inactivity timeout
+    initializeSessionManagement();
+    
+    // Restore previous session state ONLY if session is still valid
+    restoreSessionState();
+    
     console.log('✅ App initialized successfully');
+}
+
+// Session management variables
+let inactivityTimer = null;
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const SESSION_EXPIRY_KEY = 'phishing_detector_session_expiry';
+const SESSION_STATE_KEY = 'phishing_detector_state';
+
+/**
+ * Initialize session management with inactivity tracking
+ */
+function initializeSessionManagement() {
+    // Set initial session expiry time (30 minutes from now)
+    updateSessionExpiry();
+    
+    // Track user activity (keyboard, mouse, scroll)
+    document.addEventListener('mousemove', resetInactivityTimer);
+    document.addEventListener('keydown', resetInactivityTimer);
+    document.addEventListener('click', resetInactivityTimer);
+    document.addEventListener('scroll', resetInactivityTimer);
+    document.addEventListener('touchstart', resetInactivityTimer);
+    
+    // Save session state periodically (every 5 seconds)
+    setInterval(saveSessionState, 5000);
+    
+    // Save on page unload
+    window.addEventListener('beforeunload', saveSessionState);
+    
+    // Check session on page load
+    checkSessionExpiry();
+    
+    // Check session periodically (every minute)
+    setInterval(checkSessionExpiry, 60000);
+    
+    console.log('✅ Session management initialized (30-minute inactivity timeout)');
+}
+
+/**
+ * Reset inactivity timer on user activity
+ */
+function resetInactivityTimer() {
+    updateSessionExpiry();
+}
+
+/**
+ * Update session expiry time to 30 minutes from now
+ */
+function updateSessionExpiry() {
+    try {
+        const expiryTime = Date.now() + INACTIVITY_TIMEOUT;
+        localStorage.setItem(SESSION_EXPIRY_KEY, expiryTime.toString());
+    } catch (e) {
+        console.error('Error updating session expiry:', e);
+    }
+}
+
+/**
+ * Check if session has expired due to inactivity
+ */
+function checkSessionExpiry() {
+    try {
+        const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
+        if (!expiryTime) {
+            // No session expiry set, initialize it
+            updateSessionExpiry();
+            return;
+        }
+        
+        const now = Date.now();
+        if (now > parseInt(expiryTime)) {
+            // Session expired - clear all session data
+            clearSessionData();
+            showInactivityWarning();
+        }
+    } catch (e) {
+        console.error('Error checking session expiry:', e);
+    }
+}
+
+/**
+ * Clear all session data
+ */
+function clearSessionData() {
+    try {
+        localStorage.removeItem(SESSION_EXPIRY_KEY);
+        localStorage.removeItem(SESSION_STATE_KEY);
+        localStorage.removeItem('phishing_detector_session');
+        console.log('✅ Session cleared due to inactivity');
+    } catch (e) {
+        console.error('Error clearing session data:', e);
+    }
+}
+
+/**
+ * Show warning that session has expired
+ */
+function showInactivityWarning() {
+    // Clear the UI
+    if (resultsSection) {
+        resultsSection.style.display = 'none';
+    }
+    if (urlInput) {
+        urlInput.value = '';
+    }
+    
+    // Show error message
+    showError('Session expired due to inactivity (30 minutes). Please refresh the page to continue.');
+    
+    // Optionally, auto-reload after showing warning
+    setTimeout(() => {
+        location.reload();
+    }, 3000);
+}
+
+/**
+ * Save current page state to localStorage for session persistence
+ */
+function saveSessionState() {
+    try {
+        // Only save if session is still valid
+        const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
+        if (!expiryTime || Date.now() > parseInt(expiryTime)) {
+            return; // Don't save if session expired
+        }
+        
+        const sessionState = {
+            timestamp: Date.now(),
+            lastActivityTime: Date.now(),
+            url: urlInput ? urlInput.value : '',
+            resultsVisible: resultsSection ? resultsSection.style.display !== 'none' : false,
+            currentResult: {
+                label: resultLabel ? resultLabel.textContent : '',
+                url: resultUrl ? resultUrl.textContent : '',
+                probability: resultProbability ? resultProbability.textContent : '',
+                classification: resultClassification ? resultClassification.textContent : '',
+                reason: resultReason ? resultReason.textContent : '',
+            },
+            scrollPosition: window.scrollY,
+        };
+        
+        localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(sessionState));
+    } catch (e) {
+        console.error('Error saving session state:', e);
+    }
+}
+
+/**
+ * Restore previous page state from localStorage (only if session is valid)
+ */
+function restoreSessionState() {
+    try {
+        // First check if session has expired
+        const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
+        if (!expiryTime || Date.now() > parseInt(expiryTime)) {
+            // Session expired - clear everything
+            clearSessionData();
+            return;
+        }
+        
+        const savedState = localStorage.getItem(SESSION_STATE_KEY);
+        if (!savedState) return;
+        
+        const state = JSON.parse(savedState);
+        
+        // Restore previous URL input
+        if (state.url && urlInput) {
+            urlInput.value = state.url;
+        }
+        
+        // Restore results if they were visible
+        if (state.resultsVisible && state.currentResult) {
+            setTimeout(() => {
+                // Restore result display
+                if (resultLabel && state.currentResult.label) {
+                    resultLabel.textContent = state.currentResult.label;
+                }
+                if (resultUrl && state.currentResult.url) {
+                    resultUrl.textContent = state.currentResult.url;
+                }
+                if (resultProbability && state.currentResult.probability) {
+                    resultProbability.textContent = state.currentResult.probability;
+                }
+                if (resultClassification && state.currentResult.classification) {
+                    resultClassification.textContent = state.currentResult.classification;
+                }
+                if (resultReason && state.currentResult.reason) {
+                    resultReason.textContent = state.currentResult.reason;
+                }
+                
+                // Show results section
+                if (resultsSection) {
+                    resultsSection.style.display = 'block';
+                }
+                
+                // Restore scroll position
+                window.scrollTo(0, state.scrollPosition);
+                
+                console.log('✅ Session state restored (user returned within 30 min inactivity timeout)');
+            }, 100);
+        }
+    } catch (e) {
+        console.error('Error restoring session state:', e);
+    }
 }
 
 /**
@@ -639,6 +848,8 @@ function hideLoading() {
 
 function showResults() {
     resultsSection.classList.remove('hidden');
+    // Save session state when results are shown
+    saveSessionState();
 }
 
 function hideResults() {
