@@ -415,20 +415,21 @@ def extract_features(url: str) -> pd.DataFrame:
 def fix_model_attributes(model):
     """
     Fix monotonic_cst attribute on model and all nested estimators.
-    This handles old models that were trained with scikit-learn 1.3.2.
+    This handles old models that were trained with scikit-learn 1.3.2 but are loaded
+    with newer versions like 1.7.2.
+    
+    Instead of deleting the attribute, we set it to None (the expected default value).
     """
     try:
-        # Fix the main model
-        if hasattr(model, 'monotonic_cst'):
-            delattr(model, 'monotonic_cst')
-        
         # For RandomForest, fix all individual trees
         if hasattr(model, 'estimators_'):
             for tree in model.estimators_:
-                if tree is not None and hasattr(tree, 'monotonic_cst'):
-                    delattr(tree, 'monotonic_cst')
+                if tree is not None:
+                    # Set monotonic_cst to None if missing - this is what new sklearn expects
+                    if not hasattr(tree, 'monotonic_cst'):
+                        tree.monotonic_cst = None
         
-        print(f"[+] Model attributes fixed - removed monotonic_cst")
+        print(f"[+] Model attributes fixed - set monotonic_cst to None on all trees")
         return model
     except Exception as e:
         print(f"[!] Warning: could not fully fix model attributes: {e}")
