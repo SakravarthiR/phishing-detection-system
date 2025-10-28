@@ -384,7 +384,8 @@ def extract_features(url: str) -> pd.DataFrame:
 def load_model(model_path: str = 'phish_model.pkl'):
     """
     Load the trained phishing detection model from disk.
-    Handles version compatibility issues with scikit-learn.
+    Handles version compatibility issues with scikit-learn by patching
+    the monotonic_cst attribute issue when loading old models.
     
     Args:
         model_path: Path to the saved model file
@@ -405,17 +406,43 @@ def load_model(model_path: str = 'phish_model.pkl'):
         except AttributeError as e:
             # Handle scikit-learn version compatibility issues
             if 'monotonic_cst' in str(e):
-                print(f"⚠️ Model version compatibility issue: {str(e)}")
-                print("🔧 Attempting to load with compatibility fixes...")
+                print(f"⚠️ Model version compatibility issue detected: {str(e)}")
+                print("🔧 Applying compatibility patches...")
                 
-                # Try loading with unsafe=True which allows loading old pickle files
+                import pickle
+                import sys
+                
+                # Monkey patch the sklearn DecisionTreeClassifier to handle monotonic_cst
                 try:
-                    model = joblib.load(model_path, mmap_mode=None)
-                    print(f"✅ Model loaded with compatibility mode")
+                    from sklearn.tree import DecisionTreeClassifier
+                    original_init = DecisionTreeClassifier.__init__
+                    
+                    def patched_init(self, *args, **kwargs):
+                        # Remove monotonic_cst if it exists in kwargs
+                        kwargs.pop('monotonic_cst', None)
+                        original_init(self, *args, **kwargs)
+                    
+                    DecisionTreeClassifier.__init__ = patched_init
+                    
+                    # Now try loading again
+                    model = joblib.load(model_path)
+                    print(f"✅ Model loaded with compatibility patch")
+                    
+                    # Restore original init
+                    DecisionTreeClassifier.__init__ = original_init
                     return model
                 except Exception as e2:
-                    print(f"❌ Compatibility mode also failed: {str(e2)}")
-                    return None
+                    print(f"⚠️ Compatibility patch failed: {str(e2)}")
+                    
+                    # Last resort: try loading with pickle directly
+                    try:
+                        with open(model_path, 'rb') as f:
+                            model = pickle.load(f)
+                        print(f"✅ Model loaded with pickle fallback")
+                        return model
+                    except Exception as e3:
+                        print(f"❌ All loading methods failed: {str(e3)}")
+                        return None
             else:
                 raise
     except Exception as e:
