@@ -20,6 +20,7 @@ import sys
 import pickle
 import io
 import warnings
+import gc  # Garbage collection for memory optimization
 
 # CRITICAL: Patch sklearn BEFORE any imports that use it
 import sklearn
@@ -473,23 +474,15 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
     """
     ADVANCED DEEP WEBSITE ANALYSIS - Comprehensive website fingerprinting and threat detection.
     
-    Performs detailed analysis for phishing indicators:
-    - Server fingerprinting and banner grabbing
-    - TLS/SSL certificate chain analysis
-    - Port and service detection
-    - DNS resolution and WHOIS checks
-    - HTTP header analysis
-    - Technology stack detection
-    - Web framework identification
-    - CMS and plugin detection
-    - Admin panel discovery
-    - Backup file detection
-    - Subdomain enumeration
-    - Vulnerability scanning patterns
+    OPTIMIZED FOR MEMORY EFFICIENCY:
+    - Reduced request timeouts
+    - Limited concurrent requests
+    - Memory-efficient parsing
+    - Automatic garbage collection
     
     Args:
         url: The website URL to scan
-        timeout: Timeout in seconds
+        timeout: Timeout in seconds (reduced to 5)
         
     Returns:
         Dictionary with detailed scan results
@@ -497,6 +490,7 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
     import socket as socket_module
     import ssl as ssl_module
     import re as regex_module
+    import gc
     
     scan_results = {
         'server_info': {},
@@ -513,13 +507,36 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
         parsed_url = urlparse(url)
         hostname = parsed_url.hostname or 'localhost'
         
-        # 1. SERVER FINGERPRINTING
+        # MEMORY OPTIMIZATION: Set strict timeout and limits
+        timeout = min(timeout, 5)  # Max 5 seconds
+        max_response_size = 10 * 1024 * 1024  # Max 10MB
+        
+        # 1. SERVER FINGERPRINTING (with memory limits)
         try:
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            response = requests.get(url, timeout=timeout, verify=False, headers=headers)
+            response = requests.get(
+                url, 
+                timeout=timeout, 
+                verify=False, 
+                headers=headers,
+                stream=True  # Stream response to save memory
+            )
             
-            # Collect HTTP headers
-            scan_results['http_headers'] = dict(response.headers)
+            # Limit response size
+            if response.headers.get('content-length'):
+                try:
+                    size = int(response.headers.get('content-length', 0))
+                    if size > max_response_size:
+                        response.close()
+                        del response
+                        gc.collect()
+                        return scan_results  # Skip large responses
+                except:
+                    pass
+            
+            # Collect HTTP headers only (not full body)
+            scan_results['http_headers'] = dict(list(response.headers.items())[:10])  # Limit to 10 headers
+            response.close()  # Close immediately
             
             # Server detection
             server_header = response.headers.get('Server', 'Unknown')
@@ -531,14 +548,16 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
                 if vuln_server in server_header:
                     scan_results['vulnerabilities'].append(f"Outdated server version: {server_header}")
                     scan_results['risk_indicators'].append('Vulnerable server detected')
+                    break  # Don't check all, limit iterations
             
             # Check for information disclosure headers
             bad_headers = ['X-Powered-By', 'X-AspNet-Version', 'X-Runtime']
             for header in bad_headers:
                 if header in response.headers:
                     scan_results['risk_indicators'].append(f"Information disclosure via {header}")
+                    break  # Limit risk indicators
             
-            # 2. TECHNOLOGY DETECTION
+            # 2. TECHNOLOGY DETECTION (limited patterns)
             tech_patterns = {
                 'WordPress': r'wp-content|wp-includes|wordpress',
                 'Joomla': r'joomla|components/com_',
@@ -557,29 +576,30 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
                 if regex_module.search(pattern, page_content + ' ' + str(response.headers), regex_module.IGNORECASE):
                     scan_results['technologies'].append(tech_name)
             
-            # 3. COMMON ADMIN PATHS
-            admin_paths = ['/admin', '/administrator', '/wp-admin', '/joomla', '/cpanel', '/admin.php']
+            # 3. COMMON ADMIN PATHS (LIMITED TO 2 CHECKS FOR MEMORY EFFICIENCY)
+            admin_paths = ['/admin', '/wp-admin']  # Reduced from 6 to 2 most common
             for admin_path in admin_paths:
                 admin_url = url.rstrip('/') + admin_path
                 try:
-                    admin_response = requests.head(admin_url, timeout=2, verify=False)
+                    admin_response = requests.head(admin_url, timeout=1, verify=False)  # Reduced timeout
                     if admin_response.status_code < 400:
                         scan_results['risk_indicators'].append(f"Admin panel potentially exposed: {admin_path}")
+                    admin_response.close()
                 except:
                     pass
             
-            # 4. BACKUP FILE DETECTION
-            backup_files = ['.bak', '.backup', '.old', '.zip', '.tar.gz', '.sql']
+            # 4. BACKUP FILE DETECTION (LIMITED TO 2 CHECKS FOR MEMORY EFFICIENCY)
             backup_patterns = [
-                url.rstrip('/') + '/' + filename
-                for filename in ['backup.zip', 'backup.sql', 'config.bak', 'database.sql']
-            ]
+                url.rstrip('/') + '/backup.zip',
+                url.rstrip('/') + '/backup.sql'
+            ]  # Reduced from 4 to 2
             
             for backup_url in backup_patterns:
                 try:
-                    backup_response = requests.head(backup_url, timeout=2, verify=False)
+                    backup_response = requests.head(backup_url, timeout=1, verify=False)  # Reduced timeout
                     if backup_response.status_code < 400:
                         scan_results['risk_indicators'].append(f"Backup file potentially accessible: {backup_url}")
+                    backup_response.close()
                 except:
                     pass
             
@@ -705,16 +725,42 @@ def analyze_website_content(url: str, timeout: int = 5) -> Dict:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         
+        # MEMORY OPTIMIZATION: Limit timeout and response size
+        timeout = min(timeout, 5)  # Max 5 seconds
+        max_response_size = 5 * 1024 * 1024  # Max 5MB for content analysis
+        
         # Perform the request with full SSL context
         response = requests.get(url, timeout=timeout, verify=False, headers=headers, allow_redirects=True)
         
         if response.status_code != 200:
             analysis['content_score'] = 0.35
             analysis['scan_details']['status_error'] = f"HTTP {response.status_code}"
+            response.close()
             return analysis
         
-        html_content = response.text
+        # MEMORY OPTIMIZATION: Check response size before loading
+        if response.headers.get('content-length'):
+            try:
+                size = int(response.headers.get('content-length', 0))
+                if size > max_response_size:
+                    analysis['content_score'] = 0.35
+                    analysis['scan_details']['status_error'] = f"Response too large: {size} bytes"
+                    response.close()
+                    del response
+                    gc.collect()
+                    return analysis
+            except:
+                pass
+        
+        # MEMORY OPTIMIZATION: Capture all needed headers BEFORE processing content
+        response_headers = dict(response.headers)
+        response_history = response.history
+        
+        html_content = response.text[:max_response_size]  # Limit to first 5MB
         html_lower = html_content.lower()
+        response.close()  # Close response immediately after reading
+        del response  # Release response object
+        gc.collect()  # Garbage collection
         
         # Extract domain from URL
         parsed_url = urlparse(url)
@@ -743,7 +789,7 @@ def analyze_website_content(url: str, timeout: int = 5) -> Dict:
             'content-security-policy',
             'x-xss-protection'
         ]
-        found_security_headers = sum(1 for header in security_headers if header in [h.lower() for h in response.headers.keys()])
+        found_security_headers = sum(1 for header in security_headers if header in [h.lower() for h in response_headers.keys()])
         if found_security_headers > 0:
             analysis['has_security_headers'] = True
             analysis['legitimacy_indicators'] += found_security_headers
@@ -751,7 +797,7 @@ def analyze_website_content(url: str, timeout: int = 5) -> Dict:
             analysis['phishing_indicators'] += 1
         
         # ===== SECTION 3: REDIRECT CHAIN ANALYSIS =====
-        analysis['redirect_count'] = len(response.history)
+        analysis['redirect_count'] = len(response_history)
         if analysis['redirect_count'] > 2:
             analysis['phishing_indicators'] += 1  # Multiple redirects suspicious
         
@@ -925,6 +971,10 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     ml_phish_prob = float(prob_vector[1])
     # ml_legit_prob = float(prob_vector[0])
     
+    # Clean up dataframe from memory
+    del features_df
+    gc.collect()
+    
     # ===== ADVANCED RULE-BASED OVERRIDES =====
     # Sometimes the ML model is too trusting, so we add manual checks
     # If any of these trigger, we're pretty sure it's phishing
@@ -1040,6 +1090,10 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     # Also include ML and combined probabilities for transparency
     features_dict['ml_phish_prob'] = round(ml_phish_prob, 4)
     features_dict['combined_phish_prob'] = round(combined_phish_prob, 4)
+
+    # Clean up large objects before returning
+    del content_analysis, threat_scan
+    gc.collect()
 
     return int(final_label), float(final_confidence), features_dict
 
