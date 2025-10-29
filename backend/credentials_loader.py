@@ -1,6 +1,6 @@
 """
-External Credentials Loader
-Loads credentials from external folder for security
+credentials loader
+loads credentials from external folder for security
 """
 
 import json
@@ -8,22 +8,22 @@ import os
 import sys
 from pathlib import Path
 
-# Determine credentials path based on environment
-# On Windows (local dev): Use external secure folder
-# On Linux (production): Use project root
+# figure out where credentials are based on the system
+# on windows (local): use external secure folder
+# on linux (production): use project root
 if os.name == 'nt':  # Windows
     CREDENTIALS_PATH = r"C:\Users\ASUS\Documents\credential\phishing\credentials.json"
 else:  # Linux/Unix (production server)
-    # Get project root directory (parent of backend folder)
+    # get project root directory (parent of backend folder)
     PROJECT_ROOT = Path(__file__).parent.parent
     CREDENTIALS_PATH = PROJECT_ROOT / "credentials.json"
 
-# Cache for loaded credentials
+# cache loaded credentials so we dont load them every time
 _credentials_cache = None
 
 
 class CredentialsLoader:
-    """Load credentials from external secure location"""
+    """load credentials from external secure location"""
     
     @staticmethod
     def load_credentials():

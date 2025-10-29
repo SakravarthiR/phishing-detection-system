@@ -1,11 +1,10 @@
 """
-Main API server for the phishing detector.
+main API server for phishing detector.
 
-This handles all the web requests and security stuff. I spent way too long
-getting the DDoS protection to work right lol. Make sure credentials.json
-is in the right place or auth won't work.
+this handels all web requests and security. spent way too long on the DDoS stuff lol. 
+make sure credentials.json is there or auth wont work.
 
-Run with: python secure_api.py (in the venv obviously)
+Run with: python secure_api.py (in the venv obviosly)
 """
 
 from flask import Flask, request, jsonify, g
@@ -23,7 +22,7 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-# Import security modules
+# import security stuff
 from security_config import SecurityConfig, SECURITY_HEADERS
 from security_utils import (
     SecurityValidator,
@@ -40,7 +39,7 @@ from advanced_security import (
     AdvancedSecurityConfig
 )
 
-# Import ML modules
+# import ML stuff
 from phish_detector import (
     load_model,
     predict_url,

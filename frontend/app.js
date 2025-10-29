@@ -1,10 +1,10 @@
 /**
- * Main Application Logic - Phishing URL Detector
- * Handles the URL checking form and parallax background effect
- * Matches discovery-engine.js pattern for consistency
+ * main app logic - phishing URL detector
+ * handles URL checking form and 3D parallax background
+ * matches discovery-engine.js pattern
  */
 
-// 3D Parallax Background Effect
+// 3D parallax background stuff
 document.addEventListener('mousemove', (e) => {
     const parallaxBg = document.querySelector('.parallax-bg');
     if (!parallaxBg) return;
@@ -18,12 +18,12 @@ document.addEventListener('mousemove', (e) => {
     parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.02)`;
 });
 
-// Configuration
+// config stuff
 const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
 const REQUEST_TIMEOUT = 30000; // 30 seconds
-const USE_SECURE_API = true; // Use JWT authentication
+const USE_SECURE_API = true; // use JWT auth
 
-// DOM Elements
+// DOM stuff
 let urlInput, checkBtn, btnText, btnSpinner;
 let resultsSection, resultsCard, errorSection;
 let resultHeader, resultIcon, resultLabel, resultUrl;
@@ -33,19 +33,19 @@ let errorMessage, dismissError;
 let securityFeatures, structureFeatures, characterFeatures;
 let domainFeatures, advancedFeatures;
 
-// Initialize on page load
+// run when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('� App loading...');
+    console.log('app loading...');
     init();
 });
 
 /**
- * Initialize the application
+ * initialize the app
  */
 function init() {
-    console.log('✅ Initializing phishing detector...');
+    console.log('initializing phishing detector...');
     
-    // Get DOM elements
+    // get DOM elements
     urlInput = document.getElementById('urlInput');
     checkBtn = document.getElementById('checkBtn');
     btnText = document.getElementById('btnText');
@@ -75,7 +75,7 @@ function init() {
     domainFeatures = document.getElementById('domainFeatures');
     advancedFeatures = document.getElementById('advancedFeatures');
     
-    // Event listeners
+    // event listeners
     checkBtn.addEventListener('click', checkURL);
     urlInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') checkURL();
@@ -84,48 +84,48 @@ function init() {
         dismissError.addEventListener('click', hideError);
     }
     
-    // Initialize session management with inactivity timeout
+    // set up session stuff with inactivity timeout
     initializeSessionManagement();
     
-    // Restore previous session state ONLY if session is still valid
+    // restore previous session if still valid
     restoreSessionState();
     
-    console.log('✅ App initialized successfully');
+    console.log('app initialized successfully');
 }
 
-// Session management variables
+// session management stuff
 let inactivityTimer = null;
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const SESSION_EXPIRY_KEY = 'phishing_detector_session_expiry';
 const SESSION_STATE_KEY = 'phishing_detector_state';
 
 /**
- * Initialize session management with inactivity tracking
+ * set up session management with inactivity tracking
  */
 function initializeSessionManagement() {
-    // Set initial session expiry time (30 minutes from now)
+    // set initial session expiry time (30 min from now)
     updateSessionExpiry();
     
-    // Track user activity (keyboard, mouse, scroll)
+    // track user activity (keyboard, mouse, scroll, touch)
     document.addEventListener('mousemove', resetInactivityTimer);
     document.addEventListener('keydown', resetInactivityTimer);
     document.addEventListener('click', resetInactivityTimer);
     document.addEventListener('scroll', resetInactivityTimer);
     document.addEventListener('touchstart', resetInactivityTimer);
     
-    // Save session state periodically (every 5 seconds)
+    // save session state every 5 seconds
     setInterval(saveSessionState, 5000);
     
-    // Save on page unload
+    // save when leaving page
     window.addEventListener('beforeunload', saveSessionState);
     
-    // Check session on page load
+    // check session on load
     checkSessionExpiry();
     
-    // Check session periodically (every minute)
+    // check session every minute
     setInterval(checkSessionExpiry, 60000);
     
-    console.log('✅ Session management initialized (30-minute inactivity timeout)');
+    console.log('session management initialized (30-minute inactivity timeout)');
 }
 
 /**

@@ -1,7 +1,7 @@
 """
-Security Configuration Module
-Handles all security-related configurations and utilities
-Loads credentials from external secure location
+security configs
+handles security stuff and utilites
+loads credentials from external secure location
 """
 
 import os
@@ -9,10 +9,10 @@ import secrets
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Load environment variables
+# load environment variables
 load_dotenv()
 
-# Import external credentials loader
+# import external credentials loader
 try:
     from credentials_loader import (
         get_secret_key,
@@ -24,7 +24,7 @@ try:
     )
     EXTERNAL_CREDENTIALS_LOADED = True
 except ImportError as e:
-    print(f"⚠️  WARNING: Could not load external credentials: {e}")
+    print(f"WARNING: Could not load external credentials: {e}")
     print(f"   Using environment variables instead")
     EXTERNAL_CREDENTIALS_LOADED = False
 

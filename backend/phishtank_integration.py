@@ -1,10 +1,10 @@
 """
-PhishTank integration - pulls down their verified phishing URL database.
+phishtank integration - gets their verified phishing URL database.
 
-Updates every 6 hours automatically. The database is huge (15k+ URLs) so I cache
-it locally. This gives us instant lookup for known threats without hammering their API.
+updates every 6 hours automatically. database is massive (15k+ URLs) so we cache
+it locally. gives us instant lookup for known threats without spamming their API.
 
-Pretty cool addition tbh, catches a lot of stuff the ML model might miss.
+pretty cool thing, catches alot of stuff our ML model might miss.
 """
 
 import requests
@@ -20,22 +20,22 @@ logger = logging.getLogger(__name__)
 
 class PhishTankDB:
     """
-    PhishTank Database Handler
-    Downloads, caches, and queries PhishTank's verified phishing database
+    phishtank database handler
+    downloads, caches, and queries phishtanks verified phishing database
     """
     
-    # PhishTank API endpoints
+    # phishtank API stuff
     PHISHTANK_API_URL = "http://data.phishtank.com/data/online-valid.json"
     PHISHTANK_FALLBACK_URL = "https://phishtank.org/data/online-valid.json.gz"
     CACHE_FILE = "phishtank_cache.json"
-    CACHE_DURATION_HOURS = 6  # Refresh every 6 hours
+    CACHE_DURATION_HOURS = 6  # refresh every 6 hours
     
     def __init__(self, cache_dir: str = None):
         """
-        Initialize PhishTank database handler
+        start up phishtank database handler
         
         Args:
-            cache_dir: Directory to store cache file (default: current directory)
+            cache_dir: folder to store cache (default: current folder)
         """
         self.cache_dir = cache_dir or os.path.dirname(__file__)
         self.cache_path = os.path.join(self.cache_dir, self.CACHE_FILE)
@@ -43,11 +43,11 @@ class PhishTankDB:
         self.url_set: set = set()
         self.last_update: Optional[datetime] = None
         
-        # Try to load from cache
+        # try to load from cache
         self._load_cache()
     
     def _load_cache(self) -> bool:
-        """Load database from cache file if it exists and is fresh"""
+        """load database from cache if it exists and is fresh"""
         try:
             if not os.path.exists(self.cache_path):
                 logger.info("No PhishTank cache found")

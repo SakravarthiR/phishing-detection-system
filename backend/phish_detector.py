@@ -1,9 +1,6 @@
 """
-Core detection logic - this is where the magic happens.
+main detection stuff - this is where everything works.
 
-Extracts a bunch of features from URLs and feeds them to the ML model.
-Also added some custom rules because the model sometimes misses obvious stuff
-like raw IP addresses or URLs with @ symbols (seriously who uses those?).
 """
 
 import re
@@ -22,23 +19,23 @@ import io
 import warnings
 import gc  # Garbage collection for memory optimization
 
-# CRITICAL: Patch sklearn BEFORE any imports that use it
+# gotta fix sklearn before we import it
 import sklearn
 from sklearn import tree, ensemble
 
-# Monkey-patch sklearn classes at import time to remove monotonic_cst
+# monkey patch stuff at the top to remove monotonic_cst from old models
 original_dt_setstate = tree.DecisionTreeClassifier.__setstate__
 original_rf_setstate = ensemble.RandomForestClassifier.__setstate__
 
 def patched_dt_setstate(self, state):
-    """Remove monotonic_cst from old model states"""
+    """remove monotonic_cst from the old model states"""
     if isinstance(state, dict):
         state.pop('monotonic_cst', None)
         state.pop('monotonic', None)
     return original_dt_setstate(self, state)
 
 def patched_rf_setstate(self, state):
-    """Remove monotonic_cst from old model states"""
+    """remove monotonic_cst from the old model states"""
     if isinstance(state, dict):
         state.pop('monotonic_cst', None)
         state.pop('monotonic', None)
@@ -52,10 +49,10 @@ print("[+] sklearn __setstate__ patches applied at import")
 
 def check_website_live(url: str, timeout: int = 5) -> dict:
     """
-    Check if a website is actually up and grab some intel about it.
+    check if a website is actually working and get info about it.
     
-    This does real HTTP requests so be careful not to spam it.
-    Returns a bunch of info like status code, SSL cert, redirects, etc.
+    this does real HTTP requests so like dont spam it too much.
+    gives back stuff like status code, SSL cert, redirects and stuff.
     """
     result = {
         'is_reachable': False,
@@ -74,43 +71,43 @@ def check_website_live(url: str, timeout: int = 5) -> dict:
     }
     
     try:
-        # Normalize URL
+        # just add http if its not there
         if not url.startswith(('http://', 'https://')):
             url = 'http://' + url
         
         start_time = datetime.now()
         
-        # Make request with redirects
+        # make request and follow redirects
         response = requests.get(
             url, 
             timeout=timeout,
             allow_redirects=True,
-            verify=False,  # Yeah I know, but we WANT to catch bad SSL certs
+            verify=False,  # yeah i know we probably shouldnt do this but we need to catch bad SSL
             headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
         )
         
         end_time = datetime.now()
         response_time = (end_time - start_time).total_seconds()
         
-        # Basic info
+        # get the basic stuff
         result['is_reachable'] = True
         result['status_code'] = response.status_code
         result['response_time'] = round(response_time, 2)
         result['final_url'] = response.url
         result['redirects'] = len(response.history)
         
-        # Headers
+        # get the headers info
         result['content_type'] = response.headers.get('Content-Type', 'Unknown')
         result['server'] = response.headers.get('Server', 'Unknown')
         
-        # Check for suspicious response patterns
+        # check for weird stuff in the response
         if response.status_code >= 400:
             result['suspicious_formats'].append(f'HTTP Error {response.status_code}')
         
         if result['redirects'] > 3:
-            result['suspicious_formats'].append(f'Too many redirects ({result["redirects"]}) - kinda sus')
+            result['suspicious_formats'].append(f'Too many redirects ({result["redirects"]}) - thats sus')
         
-        # Check SSL certificate if it's HTTPS
+        # if its HTTPS check the SSL cert
         if url.startswith('https://'):
             result['has_ssl'] = True
             try:
@@ -125,37 +122,37 @@ def check_website_live(url: str, timeout: int = 5) -> dict:
                         result['ssl_valid'] = True
                         result['ssl_issuer'] = dict(x[0] for x in cert['issuer'])['commonName']
                         
-                        # Parse expiry date
+                        # parse the expiry date
                         expiry_str = cert['notAfter']
                         expiry_date = datetime.strptime(expiry_str, '%b %d %H:%M:%S %Y %Z')
                         result['ssl_expiry'] = expiry_date.strftime('%Y-%m-%d')
                         
-                        # Check if expired
+                        # check if the cert expired
                         if expiry_date < datetime.now():
-                            result['suspicious_formats'].append('SSL certificate expired')
+                            result['suspicious_formats'].append('SSL certificate is expired')
                             result['ssl_valid'] = False
                             
             except ssl.SSLError as e:
                 result['ssl_valid'] = False
-                result['suspicious_formats'].append(f'Invalid SSL: {str(e)[:50]}')
+                result['suspicious_formats'].append(f'Bad SSL: {str(e)[:50]}')
             except Exception as e:
                 result['ssl_valid'] = False
-                result['suspicious_formats'].append('SSL check failed')
+                result['suspicious_formats'].append('SSL check didnt work')
         
-        # Check content type
+        # check content type stuff
         content_type = result['content_type'].lower()
         if 'text/html' not in content_type and 'application/xhtml' not in content_type:
             if response.status_code == 200:
-                result['suspicious_formats'].append(f'Unusual content type: {content_type}')
+                result['suspicious_formats'].append(f'Weird content type: {content_type}')
         
     except requests.exceptions.Timeout:
-        result['error'] = 'Request timeout - website too slow or unresponsive'
+        result['error'] = 'Request timeout - website is slow or not responding'
         result['suspicious_formats'].append('Timeout')
     except requests.exceptions.ConnectionError:
-        result['error'] = 'Cannot connect - website may be offline'
+        result['error'] = 'Cant connect - website might be down'
         result['suspicious_formats'].append('Connection failed')
     except requests.exceptions.TooManyRedirects:
-        result['error'] = 'Too many redirects'
+        result['error'] = 'way too many redirects'
         result['suspicious_formats'].append('Redirect loop detected')
     except requests.exceptions.RequestException as e:
         result['error'] = f'Request error: {str(e)[:100]}'
@@ -167,18 +164,6 @@ def check_website_live(url: str, timeout: int = 5) -> dict:
 
 
 def extract_subdomain_info(url: str) -> dict:
-    """
-    Extract subdomain information from URL (simplified - just list and count).
-    
-    Args:
-        url: The URL string to analyze
-        
-    Returns:
-        Dictionary with subdomain info:
-        - subdomain_count: Number of subdomains
-        - subdomains: List of subdomain names
-        - full_domain: Complete domain
-    """
     url_lower = url.lower()
     
     # Extract domain from URL
@@ -211,35 +196,35 @@ def extract_subdomain_info(url: str) -> dict:
 
 def extract_features(url: str) -> pd.DataFrame:
     """
-    Extract advanced lexical features from a URL for phishing detection.
-    Uses sophisticated regex patterns for accurate feature extraction.
+    pull out lexical features from URLs for phishing detection.
+    uses regex patterns to find features accuratly.
     
     Args:
-        url: The URL string to analyze
+        url: the URL string to look at
         
     Returns:
-        A pandas DataFrame with one row containing extracted features
+        a pandas DataFrame with one row of extracted features
         
     Features extracted:
-        - url_length: Total character count
-        - num_dots: Number of '.' characters
-        - num_hyphens: Number of '-' characters
-        - num_digits: Count of numeric digits
-        - has_ip: Binary flag (1 if URL contains valid IPv4 address)
-        - has_ipv6: Binary flag (1 if URL contains IPv6 address)
-        - has_suspicious_keyword: Contains phishing-related keywords
-        - is_https: Uses HTTPS protocol
-        - num_subdomains: Count of subdomains
-        - entropy: Shannon entropy (randomness measure)
-        - has_port: Contains non-standard port number
-        - has_double_slash: Has '//' in path (suspicious)
-        - has_at_symbol: Contains '@' (URL obfuscation)
-        - has_shortening_service: Known URL shortener domain
-        - domain_length: Length of domain name only
-        - path_length: Length of URL path
-        - has_hex_chars: Contains hexadecimal encoding
-        - suspicious_tld: Uses suspicious top-level domain
-        - digit_letter_ratio: Ratio of digits to letters
+        - url_length: total number of characters
+        - num_dots: how many '.' are there
+        - num_hyphens: how many '-' are there
+        - num_digits: count of numbers
+        - has_ip: 1 if URL has IPv4 address
+        - has_ipv6: 1 if URL has IPv6 address
+        - has_suspicious_keyword: has phishing related words
+        - is_https: uses HTTPS or not
+        - num_subdomains: how many subdomains
+        - entropy: randomness measure
+        - has_port: has weird port number
+        - has_double_slash: has '//' in path (bad sign)
+        - has_at_symbol: has '@' (obfuscation)
+        - has_shortening_service: uses URL shortener
+        - domain_length: lengh of domain
+        - path_length: lengh of path
+        - has_hex_chars: has hex encoding
+        - suspicious_tld: uses suspicious TLD
+        - digit_letter_ratio: digits vs letters
     """
     from collections import Counter
     import math
@@ -247,20 +232,20 @@ def extract_features(url: str) -> pd.DataFrame:
     features = {}
     url_lower = url.lower()
     
-    # Basic length features
+    # basic length stuff
     features['url_length'] = len(url)
     
-    # Advanced regex patterns for accurate detection
+    # regex patterns to find things accurately
     
-    # 1. IPv4 Address Detection (RFC compliant with valid range 0-255)
+    # 1. check for IPv4 addresses (making sure numbers are 0-255)
     ipv4_pattern = r'\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b'
     features['has_ip'] = 1 if re.search(ipv4_pattern, url) else 0
     
-    # 2. IPv6 Address Detection (simplified pattern)
+    # 2. check for IPv6 addresses (simplified version)
     ipv6_pattern = r'(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|(?:[0-9a-fA-F]{1,4}:){1,7}:|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4})'
     features['has_ipv6'] = 1 if re.search(ipv6_pattern, url) else 0
     
-    # 3. Count special characters
+    # 3. count special characters
     features['num_dots'] = url.count('.')
     features['num_hyphens'] = url.count('-')
     features['num_underscores'] = url.count('_')
@@ -271,12 +256,12 @@ def extract_features(url: str) -> pd.DataFrame:
     features['num_equals'] = url.count('=')
     features['num_percent'] = url.count('%')
     
-    # 4. Count digits and calculate digit-to-letter ratio
+    # 4. count digits and figure out digit to letter ratio
     features['num_digits'] = sum(c.isdigit() for c in url)
     num_letters = sum(c.isalpha() for c in url)
     features['digit_letter_ratio'] = features['num_digits'] / max(num_letters, 1)
     
-    # 5. Check for @ symbol (URL obfuscation technique)
+    # 5. check if @ symbol is there (used for obfuscation)
     features['has_at_symbol'] = 1 if '@' in url else 0
     
     # 6. Advanced suspicious keyword detection (case-insensitive with word boundaries)
@@ -471,22 +456,6 @@ def load_model(model_path: str = 'phish_model.pkl'):
 
 
 def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
-    """
-    ADVANCED DEEP WEBSITE ANALYSIS - Comprehensive website fingerprinting and threat detection.
-    
-    OPTIMIZED FOR MEMORY EFFICIENCY:
-    - Reduced request timeouts
-    - Limited concurrent requests
-    - Memory-efficient parsing
-    - Automatic garbage collection
-    
-    Args:
-        url: The website URL to scan
-        timeout: Timeout in seconds (reduced to 5)
-        
-    Returns:
-        Dictionary with detailed scan results
-    """
     import socket as socket_module
     import ssl as ssl_module
     import re as regex_module
@@ -676,28 +645,7 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
 
 
 def analyze_website_content(url: str, timeout: int = 5) -> Dict:
-    """
-    COMPREHENSIVE DEEP WEBSITE ANALYSIS - Analyzes HTML content, forms, and security indicators
-    
-    Analyzes:
-    - SSL/TLS certificate validity
-    - Server headers and security indicators
-    - Form structure and submission targets
-    - JavaScript behavior and obfuscation
-    - DOM content and structure
-    - External resource loading
-    - Redirect chains
-    - Page age and update patterns
-    - Trust indicators (badges, seals, copyright)
-    - Brand impersonation attempts
-    
-    Args:
-        url: The website URL to analyze
-        timeout: Request timeout in seconds
-        
-    Returns:
-        Dictionary with comprehensive content analysis
-    """
+
     analysis = {
         'has_login_form': False,
         'has_external_form': False,
@@ -942,19 +890,7 @@ def analyze_website_content(url: str, timeout: int = 5) -> Dict:
 
 
 def predict_url(url: str, model) -> Tuple[int, float, Dict]:
-    """
-    Predict whether a URL is phishing or legitimate with advanced rule-based overrides.
-    
-    Args:
-        url: The URL to analyze
-        model: The trained model object
-        
-    Returns:
-        A tuple of (label, probability, features_dict)
-        - label: 0 for legitimate, 1 for phishing
-        - probability: Confidence score (0.0 to 1.0)
-        - features_dict: Dictionary of extracted features
-    """
+
     if model is None:
         raise ValueError("Model is not loaded")
     
@@ -1099,16 +1035,7 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
 
 
 def get_top_feature(features_dict: Dict) -> str:
-    """
-    Determine the most indicative features for explanation using advanced analysis.
-    Prioritizes critical security indicators for user-friendly output.
-    
-    Args:
-        features_dict: Dictionary of extracted features
-        
-    Returns:
-        A human-readable string describing the top suspicious features
-    """
+   
     reasons = []
     
     # Critical indicators (highest priority)
@@ -1187,18 +1114,6 @@ def get_top_feature(features_dict: Dict) -> str:
 
 
 def get_professional_risk_assessment(probability: float, label: int, features_dict: Dict) -> Dict:
-    """
-    Generate professional, real-world risk assessment with appropriate language
-    and actionable recommendations based on threat level.
-    
-    Args:
-        probability: Combined phishing probability (0-1)
-        label: Prediction label (0=legitimate, 1=phishing)
-        features_dict: Dictionary of extracted features
-        
-    Returns:
-        Dictionary with risk_level, risk_description, recommendation, threat_score
-    """
     
     # Probability directly represents phishing risk - use it as-is
     # High probability = high phishing risk (dangerous)
