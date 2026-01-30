@@ -9,10 +9,12 @@ import sys
 from pathlib import Path
 
 # Determine credentials path based on environment
-# On Windows (local dev): Use external secure folder
-# On Linux (production): Use project root
-if os.name == 'nt':  # Windows
-    CREDENTIALS_PATH = r"C:\Users\ASUS\Documents\credential\phishing\credentials.json"
+# Priority: 1) ENV_VAR, 2) External secure folder, 3) Project root
+if os.getenv('CREDENTIALS_PATH'):
+    CREDENTIALS_PATH = os.getenv('CREDENTIALS_PATH')
+elif os.name == 'nt':  # Windows - use secure external folder
+    # Use environment variable or default secure location
+    CREDENTIALS_PATH = os.getenv('SECURE_CREDENTIALS_DIR', str(Path.home() / '.secure' / 'phishing' / 'credentials.json'))
 else:  # Linux/Unix (production server)
     # Get project root directory (parent of backend folder)
     PROJECT_ROOT = Path(__file__).parent.parent
@@ -106,7 +108,7 @@ class CredentialsLoader:
         return {
             "admin": {
                 "username": "admin",
-                "password_hash": "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYqgOCkT0Ci",
+                "password_hash": "$2b$12$mKjUEPz0ks55uPXgMH4mMuGwl/ogJRS6TBRAjSO5jh2n84MrZf4v6",
                 "role": "admin"
             },
             "api_keys": {

@@ -18,10 +18,10 @@ services:
     name: phishing-detector-api
     env: python
     region: oregon
-    plan: free
+    plan: free  # KEEP: Free tier with optimizations
     branch: main
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && gunicorn --config gunicorn_config.py secure_api:app
+    startCommand: cd backend && gunicorn --config gunicorn_config.py --workers 1 --max-requests 100 secure_api:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -46,6 +46,8 @@ services:
         value: 100
       - key: PHISHTANK_CACHE_HOURS
         value: 6
+      - key: PYTHONUNBUFFERED
+        value: "1"
     healthCheckPath: /health
     headers:
       - path: /*

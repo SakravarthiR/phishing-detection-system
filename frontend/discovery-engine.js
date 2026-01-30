@@ -5,28 +5,128 @@
  * The subdomain scanner was inspired by c99.nl but way more integrated.
  */
 
-// 3D Parallax Background Effect for Scanner
-document.addEventListener('mousemove', (e) => {
+// 3D Parallax Background Effect for Scanner + Interactive Button Animation + Cursor Circle
+// Consolidated mouse handlers to prevent memory leaks from duplicate listeners
+(() => {
     const parallaxBg = document.querySelector('.parallax-bg-scanner');
-    if (!parallaxBg) return;
+    const cursorCircle = document.querySelector('.cursor-circle');
+    const buttons = document.querySelectorAll('.scanner-link-btn, .back-to-phishing-btn');
     
-    const mouseX = e.clientX / window.innerWidth;
-    const mouseY = e.clientY / window.innerHeight;
+    // Single mousemove handler for all effects
+    function handleMouseMove(e) {
+        // Parallax effect
+        if (parallaxBg) {
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            const moveX = (mouseX - 0.5) * 40;
+            const moveY = (mouseY - 0.5) * 40;
+            parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.05)`;
+        }
+        
+        // Cursor circle tracking
+        if (cursorCircle) {
+            cursorCircle.style.left = (e.pageX - 20) + 'px';
+            cursorCircle.style.top = (e.pageY - 20) + 'px';
+        }
+        
+        // Button tilt effect
+        buttons.forEach(btn => {
+            const rect = btn.getBoundingClientRect();
+            const btnCenterX = rect.left + rect.width / 2;
+            const btnCenterY = rect.top + rect.height / 2;
+            
+            const distX = e.clientX - btnCenterX;
+            const distY = e.clientY - btnCenterY;
+            const distance = Math.sqrt(distX * distX + distY * distY);
+            
+            if (distance < 150) {
+                const angle = Math.atan2(distY, distX);
+                const mx = Math.cos(angle) * (150 - distance) / 150 * 15;
+                const my = Math.sin(angle) * (150 - distance) / 150 * 15;
+                
+                btn.style.transform = `translate(${mx * 0.15}px, ${my * 0.3}px) rotate3d(${-my * 0.1}, ${mx * 0.1}, 0, 8deg)`;
+                btn.classList.add('glow-active');
+                
+                const span = btn.querySelector('span');
+                if (span) {
+                    span.style.transform = `translate(${mx * 0.025}px, ${my * 0.075}px)`;
+                }
+            } else {
+                btn.style.transform = 'translate(0px, 0px) rotate3d(0, 0, 0, 0deg)';
+                btn.classList.remove('glow-active');
+                const span = btn.querySelector('span');
+                if (span) {
+                    span.style.transform = 'translate(0px, 0px)';
+                }
+            }
+        });
+    }
     
-    const moveX = (mouseX - 0.5) * 40; // Adjust intensity (40px max)
-    const moveY = (mouseY - 0.5) * 40;
+    // Mouseleave handler
+    function handleMouseLeave() {
+        buttons.forEach(btn => {
+            btn.style.transform = 'translate(0px, 0px) rotate3d(0, 0, 0, 0deg)';
+            const span = btn.querySelector('span');
+            if (span) {
+                span.style.transform = 'translate(0px, 0px)';
+            }
+        });
+        
+        if (cursorCircle) {
+            cursorCircle.classList.remove('active');
+        }
+        if (document.body) {
+            document.body.classList.remove('mix-blend-active');
+        }
+    }
     
-    parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.05)`;
-});
+    // Register handlers (will be tracked by app.js)
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseleave', handleMouseLeave);
+    
+    // Add button-specific hover effects
+    buttons.forEach(btn => {
+        btn.addEventListener('mouseenter', function() {
+            if (cursorCircle) {
+                cursorCircle.classList.add('active');
+                document.body.classList.add('mix-blend-active');
+            }
+        });
+        
+        btn.addEventListener('mouseleave', function() {
+            if (cursorCircle) {
+                cursorCircle.classList.remove('active');
+            }
+            if (document.body) {
+                document.body.classList.remove('mix-blend-active');
+            }
+        });
+    });
+})();
 
 // Configuration
-// Use direct Render URL for backend API (more reliable than DNS subdomain)
-const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
+// Detect environment and set API URL accordingly
+function getAPIURL() {
+    const hostname = window.location.hostname;
+    
+    // If running from file:// or localhost, use local backend
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+        return 'http://localhost:5000';
+    }
+    
+    // Production deployment
+    return 'https://phishing-detection-system-1.onrender.com';
+}
+
+const API_BASE_URL = getAPIURL();
 const REQUEST_TIMEOUT = 120000; // 2 minutes for subdomain scanning
-const USE_SECURE_API = true; // Set to true to use secure_api.py (JWT auth required)
+const USE_SECURE_API = true; // Set to true to enable JWT auth
+
+console.log('[+] API URL: ' + API_BASE_URL);
+console.log('[+] Environment: ' + window.location.hostname);
 
 // DOM Elements
-let domainInput, scanBtn, btnText, btnSpinner;
+let domainInput, scanBtn, btnText, btnLoader;
 let loadingSection, errorSection, resultsSection;
 let domainName, subdomainCount, mostUsedIp, mostUsedCount, scanTime;
 let scanDate, uniqueIps, cloudflareCount;
@@ -43,8 +143,8 @@ function init() {
     // Get DOM elements
     domainInput = document.getElementById('domainInput');
     scanBtn = document.getElementById('scanBtn');
-    btnText = scanBtn.querySelector('.btn-text');
-    btnSpinner = scanBtn.querySelector('.btn-spinner');
+    btnText = document.getElementById('scanBtnText');
+    btnLoader = document.getElementById('scanBtnLoader');
     
     loadingSection = document.getElementById('loadingSection');
     errorSection = document.getElementById('errorSection');
@@ -76,6 +176,18 @@ function init() {
     exportBtn.addEventListener('click', exportToCSV);
     clearHistoryBtn.addEventListener('click', clearAllHistory);
     
+    // Add logout button listener
+    const logoutBtnScanner = document.getElementById('logoutBtnScanner');
+    if (logoutBtnScanner) {
+        logoutBtnScanner.addEventListener('click', logout);
+    }
+    
+    // Add retry button listener
+    const retryBtn = document.getElementById('retryBtn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', function() { location.reload(); });
+    }
+    
     // Load scan history
     loadScanHistory();
     renderHistory();
@@ -90,7 +202,7 @@ async function startScan() {
     
     // Basic validation
     if (!domain) {
-        alert('Dude, you need to enter a domain first');
+        alert('Please enter a domain');
         return;
     }
     
@@ -98,27 +210,21 @@ async function startScan() {
     const cleanDomain = domain
         .replace(/^https?:\/\//, '')
         .replace(/^www\./, '')
-        .split('/')[0];  // Remove anything after the first slash
+        .split('/')[0];
     
-    console.log(`Starting scan for: ${cleanDomain}`);
-    
-    // Update UI
+    // Update UI - show loading immediately
     hideError();
     hideResults();
-    setLoading(true);
     showLoading();
     
     try {
-        // Call API
         const result = await scanSubdomains(cleanDomain);
-        
-        // Display results
         displayResults(result);
         
     } catch (error) {
+        console.error('[ERROR] Scan failed:', error);
         showError(error.message);
     } finally {
-        setLoading(false);
         hideLoading();
     }
 }
@@ -138,11 +244,19 @@ async function scanSubdomains(domain) {
         // Add JWT token if using secure API
         if (USE_SECURE_API) {
             const token = getAuthToken();
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
+            if (!token) {
+                console.warn('[!] No auth token found - redirecting to login');
+                window.location.href = '/secure-auth-portal.html';
+                throw new Error('Authentication required - please login first');
             }
+            headers['Authorization'] = `Bearer ${token}`;
+            console.log('[+] Auth token added to request');
+            console.log('[DEBUG] Token:', token.substring(0, 50) + '...');
         }
         
+        console.log(`[>] Making request to ${API_BASE_URL}/scan-subdomains`);
+        console.log('[DEBUG] Full URL:', `${API_BASE_URL}/scan-subdomains`);
+        console.log('[DEBUG] Headers:', headers);
         const response = await fetch(`${API_BASE_URL}/scan-subdomains`, {
             method: 'POST',
             headers: headers,
@@ -152,25 +266,37 @@ async function scanSubdomains(domain) {
         
         clearTimeout(timeoutId);
         
+        console.log(`[*] Response status: ${response.status}`);
+        
         // If auth fails, kick them back to login
         if (response.status === 401 && USE_SECURE_API) {
             console.warn('Token expired or invalid - back to login you go');
             window.location.href = '/secure-auth-portal.html';
-            throw new Error('Authentication required');
+            throw new Error('Authentication required - please login again');
         }
         
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Scan failed');
+            let errorMessage = 'Scan failed';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.message || errorData.error || 'Scan failed';
+            } catch (parseError) {
+                console.warn('Could not parse error response:', parseError);
+                errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(errorMessage);
         }
         
         const data = await response.json();
+        console.log('[+] Scan completed successfully');
         return data;
         
     } catch (error) {
         if (error.name === 'AbortError') {
-            throw new Error('Scan took too long - probably a huge domain with tons of subdomains');
+            console.error('[!] Request timeout');
+            throw new Error('Scan took too long (2 minutes) - probably a huge domain with tons of subdomains');
         }
+        console.error('[!] Scan error:', error.message);
         throw error;
     }
 }
@@ -240,7 +366,12 @@ function displayIpStats(ipStats) {
     ipStatsList.innerHTML = '';
     
     if (!ipStats || Object.keys(ipStats).length === 0) {
-        ipStatsList.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">No IP statistics available</p>';
+        const p = document.createElement('p');
+        p.style.textAlign = 'center';
+        p.style.color = '#6b7280';
+        p.style.padding = '2rem';
+        p.textContent = 'No IP statistics available';
+        ipStatsList.appendChild(p);
         return;
     }
     
@@ -250,10 +381,17 @@ function displayIpStats(ipStats) {
     topIps.forEach(([ip, count]) => {
         const item = document.createElement('div');
         item.className = 'ip-stat-item';
-        item.innerHTML = `
-            <span class="ip-stat-address">${ip}</span>
-            <span class="ip-stat-count">${count}x</span>
-        `;
+        
+        const addrSpan = document.createElement('span');
+        addrSpan.className = 'ip-stat-address';
+        addrSpan.textContent = ip;
+        
+        const countSpan = document.createElement('span');
+        countSpan.className = 'ip-stat-count';
+        countSpan.textContent = count + 'x';
+        
+        item.appendChild(addrSpan);
+        item.appendChild(countSpan);
         ipStatsList.appendChild(item);
     });
 }
@@ -267,35 +405,81 @@ function displaySubdomainsTable(subdomains) {
     // Update table count
     const tableCount = document.getElementById('tableCount');
     if (tableCount) {
-        tableCount.textContent = subdomains && subdomains.length > 0 
-            ? `${subdomains.length} result${subdomains.length !== 1 ? 's' : ''}`
-            : '0 results';
+        if (subdomains && subdomains.length > 0) {
+            tableCount.textContent = subdomains.length + ' result' + (subdomains.length !== 1 ? 's' : '');
+        } else {
+            tableCount.textContent = '0 results';
+        }
     }
     
     if (!subdomains || subdomains.length === 0) {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td colspan="5" style="text-align: center; padding: 3rem; color: #94a3b8; font-size: 1.1rem;">
-                <div style="opacity: 0.5; margin-bottom: 0.5rem; font-size: 3rem;">🔍</div>
-                <div style="font-weight: 600;">No subdomains found</div>
-                <div style="font-size: 0.9rem; margin-top: 0.5rem;">Try scanning a different domain</div>
-            </td>
-        `;
+        const cell = document.createElement('td');
+        cell.colSpan = 5;
+        cell.style.textAlign = 'center';
+        cell.style.padding = '3rem';
+        cell.style.color = '#94a3b8';
+        cell.style.fontSize = '1.1rem';
+        
+        const icon = document.createElement('div');
+        icon.style.opacity = '0.5';
+        icon.style.marginBottom = '0.5rem';
+        icon.style.fontSize = '3rem';
+        icon.textContent = '?';
+        
+        const title = document.createElement('div');
+        title.style.fontWeight = '600';
+        title.textContent = 'No subdomains found';
+        
+        const hint = document.createElement('div');
+        hint.style.fontSize = '0.9rem';
+        hint.style.marginTop = '0.5rem';
+        hint.textContent = 'Try scanning a different domain';
+        
+        cell.appendChild(icon);
+        cell.appendChild(title);
+        cell.appendChild(hint);
+        row.appendChild(cell);
         subdomainTableBody.appendChild(row);
         return;
     }
     
     subdomains.forEach((sub, index) => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${index + 1}</td>
-            <td><span class="advanced-subdomain-name">${sub.subdomain}</span></td>
-            <td><span class="advanced-subdomain-full">${sub.full_domain}</span></td>
-            <td><span class="advanced-subdomain-ip">${sub.ip || 'N/A'}</span></td>
-            <td style="text-align: center;">
-                <span class="cloudflare-status ${sub.cloudflare}">${sub.cloudflare}</span>
-            </td>
-        `;
+        
+        const numCell = document.createElement('td');
+        numCell.textContent = (index + 1).toString();
+        
+        const nameCell = document.createElement('td');
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'advanced-subdomain-name';
+        nameSpan.textContent = sub.subdomain || '';
+        nameCell.appendChild(nameSpan);
+        
+        const fullCell = document.createElement('td');
+        const fullSpan = document.createElement('span');
+        fullSpan.className = 'advanced-subdomain-full';
+        fullSpan.textContent = sub.full_domain || '';
+        fullCell.appendChild(fullSpan);
+        
+        const ipCell = document.createElement('td');
+        const ipSpan = document.createElement('span');
+        ipSpan.className = 'advanced-subdomain-ip';
+        ipSpan.textContent = sub.ip || 'N/A';
+        ipCell.appendChild(ipSpan);
+        
+        const cfCell = document.createElement('td');
+        cfCell.style.textAlign = 'center';
+        const cfSpan = document.createElement('span');
+        cfSpan.className = 'cloudflare-status ' + (sub.cloudflare || '');
+        cfSpan.textContent = sub.cloudflare || '';
+        cfCell.appendChild(cfSpan);
+        
+        row.appendChild(numCell);
+        row.appendChild(nameCell);
+        row.appendChild(fullCell);
+        row.appendChild(ipCell);
+        row.appendChild(cfCell);
         subdomainTableBody.appendChild(row);
     });
 }
@@ -349,6 +533,9 @@ function exportToCSV() {
  * Show loading state
  */
 function showLoading() {
+    scanBtn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoader.classList.remove('hidden');
     loadingSection.classList.remove('hidden');
 }
 
@@ -356,6 +543,9 @@ function showLoading() {
  * Hide loading state
  */
 function hideLoading() {
+    scanBtn.disabled = false;
+    btnText.style.display = 'inline';
+    btnLoader.classList.add('hidden');
     loadingSection.classList.add('hidden');
 }
 
@@ -448,65 +638,19 @@ function addToHistory(scanData) {
     }
     
     saveScanHistory();
+    
+    // Also add to localStorage for the table display
+    addScanToHistory(scanData.domain, scanData.subdomain_count, scanData.scan_time * 1000);
     renderHistory();
 }
 
 /**
- * Render scan history
+ * Render scan history - DISABLED (using new table format instead)
  */
 function renderHistory() {
-    if (!scanHistory || scanHistory.length === 0) {
-        historyList.innerHTML = `
-            <div class="history-empty">
-                <div class="empty-icon">🔍</div>
-                <p class="empty-text">No scan history yet</p>
-                <p class="empty-hint">Start scanning domains to see history</p>
-            </div>
-        `;
-        return;
-    }
-    
-    historyList.innerHTML = scanHistory.map(item => {
-        const timeAgo = getTimeAgo(new Date(item.timestamp));
-        return `
-            <div class="history-item" data-id="${item.id}">
-                <div class="history-item-header">
-                    <div class="history-domain">${item.domain}</div>
-                    <button class="history-delete" onclick="deleteHistoryItem(${item.id})" title="Delete">
-                        ❌
-                    </button>
-                </div>
-                <div class="history-stats">
-                    <div class="history-stat">
-                        <span class="stat-icon">🔀</span>
-                        <span class="stat-value">${item.subdomainCount}</span>
-                    </div>
-                    <div class="history-stat">
-                        <span class="stat-icon">🌐</span>
-                        <span class="stat-value">${item.uniqueIps}</span>
-                    </div>
-                    <div class="history-stat">
-                        <span class="stat-icon">⚡</span>
-                        <span class="stat-value">${item.scanTime}</span>
-                    </div>
-                </div>
-                <div class="history-time">
-                    <span class="time-icon">🕐</span>
-                    <span>${timeAgo}</span>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    // Add click listeners to history items
-    document.querySelectorAll('.history-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            if (!e.target.classList.contains('history-delete')) {
-                const id = parseInt(item.dataset.id);
-                loadHistoryItem(id);
-            }
-        });
-    });
+    // Old card-based history display disabled
+    // New table display is handled by updateScanHistoryDisplay()
+    return;
 }
 
 /**
@@ -538,9 +682,30 @@ window.deleteHistoryItem = function(id) {
  */
 function clearAllHistory() {
     if (confirm('Are you sure you want to clear all scan history?')) {
-        scanHistory = [];
-        saveScanHistory();
-        renderHistory();
+        try {
+            // Add animation to button
+            const clearBtn = document.getElementById('clearHistoryBtn');
+            if (clearBtn && !clearBtn.classList.contains('delete')) {
+                clearBtn.classList.add('delete');
+            }
+            
+            // Clear history after animation starts
+            setTimeout(() => {
+                localStorage.removeItem(HISTORY_KEY);
+                updateScanHistoryDisplay();
+                console.log('[+] All scan history cleared');
+            }, 500);
+            
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                if (clearBtn && clearBtn.classList.contains('delete')) {
+                    clearBtn.classList.remove('delete');
+                }
+            }, 3200);
+            
+        } catch (e) {
+            console.error('Error clearing history:', e);
+        }
     }
 }
 
@@ -564,9 +729,236 @@ function getTimeAgo(date) {
     return date.toLocaleDateString();
 }
 
+/**
+ * Scan History Management
+ */
+const HISTORY_KEY = 'subdomain_scan_history';
+const MAX_HISTORY_ITEMS = 20;
+
+function addScanToHistory(domain, foundCount, scanTimeMs) {
+    try {
+        let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        
+        // Check if this domain already exists in history
+        const duplicateIndex = history.findIndex(item => item.fullDomain === domain);
+        
+        // If duplicate exists, remove it (we'll add it again at the top)
+        if (duplicateIndex !== -1) {
+            history.splice(duplicateIndex, 1);
+            console.log('[+] Removed duplicate domain from history:', domain);
+        }
+        
+        const entry = {
+            domain: domain.substring(0, 25) + (domain.length > 25 ? '...' : ''),
+            found: foundCount,
+            scanTime: Math.round(scanTimeMs / 1000),
+            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            fullDomain: domain,
+            // Store scan data for later display
+            scanData: {
+                subdomain_count: foundCount,
+                scan_time: scanTimeMs / 1000
+            }
+        };
+        
+        history.unshift(entry);
+        history = history.slice(0, MAX_HISTORY_ITEMS);
+        
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        updateScanHistoryDisplay();
+        
+    } catch (e) {
+        console.error('Error adding to scan history:', e);
+    }
+}
+
+function updateScanHistoryDisplay() {
+    try {
+        const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const historyTableContainer = document.querySelector('.history-table-container-scanner');
+        
+        if (!historyTableBody) return;
+        
+        // Clear table
+        historyTableBody.innerHTML = '';
+        
+        // Get empty state element
+        const historyList = document.getElementById('historyList');
+        const emptyState = historyList ? historyList.querySelector('.history-empty') : null;
+        
+        if (history.length === 0) {
+            // Show empty state and hide table container
+            if (emptyState) {
+                emptyState.style.display = 'block';
+            }
+            if (historyTableContainer) {
+                historyTableContainer.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Hide empty state and show table container
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        if (historyTableContainer) {
+            historyTableContainer.style.display = 'block';
+        }
+        
+        // Build table rows safely
+        history.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.title = 'Click to view: ' + item.fullDomain + ' - Found ' + item.found + ' subdomains';
+            
+            const domainCell = document.createElement('td');
+            domainCell.className = 'scan-domain';
+            domainCell.textContent = item.domain;
+            domainCell.style.cursor = 'pointer';
+            domainCell.onclick = function() { displayScanHistory(index); };
+            
+            const deleteCell = document.createElement('td');
+            deleteCell.className = 'scan-delete-btn';
+            deleteCell.textContent = '✕';
+            deleteCell.title = 'Delete this scan';
+            deleteCell.style.cursor = 'pointer';
+            deleteCell.style.textAlign = 'center';
+            deleteCell.onclick = function(e) { 
+                e.stopPropagation();
+                deleteScanHistoryItem(index); 
+            };
+            
+            row.appendChild(domainCell);
+            row.appendChild(deleteCell);
+            historyTableBody.appendChild(row);
+        });
+        
+    } catch (e) {
+        console.error('Error updating scan history display:', e);
+    }
+}
+
+function displayScanHistory(index) {
+    try {
+        const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const item = history[index];
+        
+        if (!item) return;
+        
+        console.log('[+] Displaying scan history:', item);
+        console.log('[>] Domain: ' + item.fullDomain);
+        console.log('[>] Subdomains found: ' + item.found);
+        console.log('[>] Scan time: ' + item.scanTime + 's');
+        
+        // Hide input and loading sections, show results
+        const inputSection = document.querySelector('.scanner-input-section');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        
+        if (inputSection) inputSection.classList.add('hidden');
+        if (loadingSection) loadingSection.classList.add('hidden');
+        if (resultsSection) resultsSection.classList.remove('hidden');
+        
+        // Update domain name
+        const domainNameEl = document.getElementById('domainName');
+        if (domainNameEl) domainNameEl.textContent = item.fullDomain;
+        
+        // Update subdomain count
+        const subdomainCountEl = document.getElementById('subdomainCount');
+        if (subdomainCountEl) subdomainCountEl.textContent = item.found;
+        
+        // Update scan time
+        const scanTimeEl = document.getElementById('scanTime');
+        if (scanTimeEl) scanTimeEl.textContent = item.scanTime + 's';
+        
+        // Display subdomains table
+        const resultsTableBody = document.getElementById('resultsTableBody');
+        if (resultsTableBody && item.subdomains) {
+            resultsTableBody.innerHTML = '';
+            item.subdomains.forEach(subdomain => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>${subdomain}</td>`;
+                resultsTableBody.appendChild(row);
+            });
+        }
+        
+        // Scroll to results
+        if (resultsSection) {
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+    } catch (e) {
+        console.error('Error displaying scan history:', e);
+    }
+}
+
+function deleteScanHistoryItem(index) {
+    try {
+        const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const item = history[index];
+        
+        if (!item) {
+            console.warn('[-] Scan history item not found');
+            return;
+        }
+        
+        // Ask for confirmation before deleting
+        if (confirm(`Delete scan for: ${item.fullDomain}?`)) {
+            history.splice(index, 1);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            updateScanHistoryDisplay();
+            console.log('[+] Scan history item deleted:', item.fullDomain);
+        }
+    } catch (e) {
+        console.error('Error deleting scan history item:', e);
+    }
+}
+
+function clearScanHistory() {
+    if (confirm('Clear all scan history?')) {
+        try {
+            localStorage.removeItem(HISTORY_KEY);
+            updateScanHistoryDisplay();
+            console.log('[+] Scan history cleared');
+        } catch (e) {
+            console.error('Error clearing scan history:', e);
+        }
+    }
+}
+
+// Initialize history on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateScanHistoryDisplay();
+    
+    const clearBtn = document.getElementById('clearHistoryBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearScanHistory);
+    }
+});
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
+}
+
+/**
+ * Logout function - Clear session and redirect
+ */
+function logout() {
+    try {
+        // Clear all phishing detector session data
+        localStorage.removeItem('phishing_detector_session');
+        
+        // Clear session storage
+        sessionStorage.clear();
+        
+        // Redirect to tracking eyes page
+        window.location.href = 'tracking-eyes.html';
+    } catch (e) {
+        console.error('Logout error:', e);
+        // Force redirect anyway
+        window.location.href = 'tracking-eyes.html';
+    }
 }

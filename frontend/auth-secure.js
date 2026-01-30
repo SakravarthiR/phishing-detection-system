@@ -1,14 +1,46 @@
 /**
  * Login page stuff - handles authentication and redirects.
- * 
- * Uses JWT tokens stored in localStorage. Added some loading animations
- * to make it feel more responsive. The parallax background was a fun touch.
+ * Optimized for low memory (Render 512MB tier)
  */
 
-// 3D Parallax Background Effect
-document.addEventListener('mousemove', (e) => {
-    const parallaxBg = document.querySelector('.parallax-bg-login');
-    if (!parallaxBg) return;
+// Get API URL based on environment
+function getAPIURL() {
+    const hostname = window.location.hostname;
+    
+    // Local development or file:// access
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+        return 'http://localhost:5000';
+    }
+    
+    // Production
+    return 'https://phishing-detection-system-1.onrender.com';
+}
+
+// Throttle function
+function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+
+// 3D Parallax Background Effect (memory-optimized with throttling)
+const parallaxBg = document.querySelector('.parallax-bg-login');
+let isIdle = true;
+let idleTimer = null;
+
+const resetParallax = () => {
+    if (parallaxBg) {
+        parallaxBg.style.transform = 'translate(0px, 0px) scale(1.05)';
+    }
+};
+
+const handleParallaxMove = throttle((e) => {
+    if (!parallaxBg || isIdle) return;
     
     const mouseX = e.clientX / window.innerWidth;
     const mouseY = e.clientY / window.innerHeight;
@@ -17,16 +49,29 @@ document.addEventListener('mousemove', (e) => {
     const moveY = (mouseY - 0.5) * 40;
     
     parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.05)`;
-});
+}, 50);
+
+document.addEventListener('mousemove', (e) => {
+    isIdle = false;
+    
+    if (idleTimer) {
+        clearTimeout(idleTimer);
+    }
+    
+    handleParallaxMove(e);
+    
+    // Reset after 3 seconds of inactivity
+    idleTimer = setTimeout(() => {
+        isIdle = true;
+        resetParallax();
+    }, 3000);
+}, {passive: true});
 
 // Configuration
-const USE_SECURE_API = true; // Set to true to use secure backend JWT authentication
-// Use direct Render URL for backend API (more reliable than DNS subdomain)
-const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
+const USE_SECURE_API = true; // Must use secure backend JWT authentication
 
-// Local credentials (fallback if secure API is disabled) - DISABLED FOR SECURITY
-const VALID_USERNAME = 'admin';
-const VALID_PASSWORD = null; // Disabled - use secure backend only
+const API_BASE_URL = getAPIURL();
+
 const SESSION_KEY = 'phishing_detector_session';
 const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -64,22 +109,6 @@ function checkSession() {
     }
     
     return false;
-}
-
-// Create local session (for non-JWT mode)
-function createLocalSession() {
-    const currentTime = new Date().getTime();
-    const expiry = currentTime + SESSION_DURATION;
-    
-    const sessionData = {
-        username: VALID_USERNAME,
-        loginTime: currentTime,
-        expiry: expiry,
-        expiresAt: expiry, // Backward compatibility
-        local: true
-    };
-    
-    localStorage.setItem(SESSION_KEY, JSON.stringify(sessionData));
 }
 
 // Create JWT session (for secure backend)
@@ -133,7 +162,6 @@ function setLoading(loading) {
 async function authenticateWithBackend(username, password) {
     console.log('🔐 Attempting backend authentication...');
     console.log(`   URL: ${API_BASE_URL}/login`);
-    console.log(`   Username: ${username}`);
     
     try {
         const response = await fetch(`${API_BASE_URL}/login`, {
@@ -141,47 +169,45 @@ async function authenticateWithBackend(username, password) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ 
-                username: username, 
-                password: password 
-            })
+            body: JSON.stringify({ username, password })
         });
         
+        console.log(`Response status: ${response.status}`);
+        
+        if (!response.ok) {
+            return {
+                success: false,
+                message: 'Authentication failed'
+            };
+        }
+        
         const data = await response.json();
+        console.log('Response data:', data);
         
-        console.log(`   Response Status: ${response.status}`);
-        console.log(`   Response Data:`, data);
-        
-        if (response.ok && data.success) {
+        if (data.success) {
             console.log('✅ Authentication successful!');
             return {
                 success: true,
                 token: data.token,
-                expiresIn: data.expires_in
+                session_id: data.session_id,
+                expiresIn: data.expires_in,
+                privileged: data.privileged || false,
+                device_name: data.device_name || 'Unknown Device',
+                username: username
             };
         } else {
-            console.log('❌ Authentication failed:', data.message);
             return {
                 success: false,
-                message: data.message || data.error || 'Authentication failed'
+                message: data.message || 'Authentication failed'
             };
         }
     } catch (error) {
-        console.error('❌ Backend connection error:', error);
+        console.error('Connection error:', error);
         return {
             success: false,
-            message: `Cannot connect to API at ${API_BASE_URL}. Please ensure secure_api.py is running.`
+            message: 'Connection failed. Is the backend running?'
         };
     }
-}
-
-// Local authentication (fallback) - DISABLED for security
-function authenticateLocally(username, password) {
-    // Local auth is disabled - only use secure backend
-    return { 
-        success: false, 
-        message: 'Backend authentication required. Please ensure API is running.' 
-    };
 }
 
 // Handle login
@@ -203,43 +229,41 @@ async function handleLogin(e) {
     // Set loading state
     setLoading(true);
     
-    let authResult;
-    
-    // Try secure backend authentication (local fallback disabled)
-    if (USE_SECURE_API) {
-        authResult = await authenticateWithBackend(username, password);
+    try {
+        // Authenticate with secure backend (required)
+        const authResult = await authenticateWithBackend(username, password);
         
-        // Backend auth successful - create JWT session
         if (authResult.success) {
-            createJWTSession(authResult.token, authResult.expiresIn);
-        }
-        // Backend auth failed - show error (no fallback to local)
-    } else {
-        // Local auth disabled for security
-        authResult = {
-            success: false,
-            message: 'Backend authentication is required. Please enable USE_SECURE_API.'
-        };
-    }
-    
-    if (authResult.success) {
-        // Success - show success message and redirect
-        btnText.textContent = 'ACCESS GRANTED';
-        btnIcon.textContent = '✓';
-        btnIcon.style.display = 'inline-block';
-        btnSpinner.classList.add('hidden');
-        
-        setTimeout(() => {
+            // Clear any errors
+            hideError();
+            
+            // Store session using the new IP-based session manager
+            storeSession(authResult);
+            
+            // Success - show success message and redirect
+            btnText.textContent = 'ACCESS GRANTED';
+            btnIcon.textContent = '✓';
+            btnIcon.style.display = 'inline-block';
+            btnSpinner.classList.add('hidden');
+            
+            console.log('✅ Session stored. Privilege level:', authResult.privileged ? 'ADMIN' : 'USER');
+            
+            // Immediate redirect
             window.location.href = 'index.html';
-        }, 500);
-    } else {
-        // Failed authentication
+        } else {
+            // Failed authentication
+            setLoading(false);
+            showError(`⚠️ ${authResult.message || 'INVALID CREDENTIALS - ACCESS DENIED'}`);
+            
+            // Clear password field
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
+    } catch (error) {
+        console.error('Login error:', error);
         setLoading(false);
-        showError(`⚠️ ${authResult.message || 'INVALID CREDENTIALS - ACCESS DENIED'}`);
-        
-        // Clear password field
+        showError('⚠️ LOGIN ERROR - TRY AGAIN');
         passwordInput.value = '';
-        passwordInput.focus();
     }
 }
 

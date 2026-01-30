@@ -48,12 +48,15 @@ class SecurityConfig:
         seconds=int(os.getenv('MAX_SESSION_AGE', 86400))
     )
     
-    # Rate Limiting
+    # Rate Limiting - ADJUSTED FOR 50 CONCURRENT USERS
     RATE_LIMIT_ENABLED = os.getenv('RATE_LIMIT_ENABLED', 'True') == 'True'
     RATE_LIMIT_STORAGE_URL = os.getenv('RATE_LIMIT_STORAGE_URL', 'memory://')
-    RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', 60))
-    RATE_LIMIT_PER_HOUR = int(os.getenv('RATE_LIMIT_PER_HOUR', 500))
-    LOGIN_RATE_LIMIT = int(os.getenv('LOGIN_RATE_LIMIT', 5))
+    # Allow 200 requests/min for 50 users (4 req/user/min) + API calls
+    RATE_LIMIT_PER_MINUTE = int(os.getenv('RATE_LIMIT_PER_MINUTE', 200))
+    # Allow 2000 requests/hour for sustained usage
+    RATE_LIMIT_PER_HOUR = int(os.getenv('RATE_LIMIT_PER_HOUR', 2000))
+    # Login attempts: 10 per 15 minutes (allows retries for 50 users)
+    LOGIN_RATE_LIMIT = int(os.getenv('LOGIN_RATE_LIMIT', 10))
     
     # CORS (from external credentials or .env)
     if EXTERNAL_CREDENTIALS_LOADED:

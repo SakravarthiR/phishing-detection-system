@@ -34,6 +34,11 @@ failed_login_attempts = {}
 blocked_ips = {}
 
 
+# Input validation constants
+MAX_USERNAME_LENGTH = 64
+MAX_PASSWORD_LENGTH = 256
+MIN_PASSWORD_LENGTH = 8
+USERNAME_PATTERN = r'^[a-zA-Z0-9_\-\.@]+$'  # Alphanumeric, underscore, dash, dot, @
 class SecurityValidator:
     """Security validation utilities"""
     
@@ -152,6 +157,66 @@ class SecurityValidator:
                 return True
         
         return False
+    
+    @staticmethod
+    def validate_username(username):
+        """
+        Validate username format and length
+        
+        Args:
+            username: Username to validate
+            
+        Returns:
+            tuple: (is_valid, error_message)
+        """
+        if not isinstance(username, str):
+            return False, "Username must be a string"
+        
+        # Check length
+        if len(username) < 2 or len(username) > MAX_USERNAME_LENGTH:
+            return False, f"Username must be between 2 and {MAX_USERNAME_LENGTH} characters"
+        
+        # Check format
+        if not re.match(USERNAME_PATTERN, username):
+            return False, "Username contains invalid characters"
+        
+        return True, None
+    
+    @staticmethod
+    def validate_password_strength(password):
+        """
+        Validate password meets security requirements
+        
+        Args:
+            password: Password to validate
+            
+        Returns:
+            tuple: (is_valid, error_message)
+        """
+        if not isinstance(password, str):
+            return False, "Password must be a string"
+        
+        # Check length
+        if len(password) < MIN_PASSWORD_LENGTH or len(password) > MAX_PASSWORD_LENGTH:
+            return False, f"Password must be between {MIN_PASSWORD_LENGTH} and {MAX_PASSWORD_LENGTH} characters"
+        
+        # Check for uppercase
+        if not re.search(r'[A-Z]', password):
+            return False, "Password must contain at least one uppercase letter"
+        
+        # Check for lowercase
+        if not re.search(r'[a-z]', password):
+            return False, "Password must contain at least one lowercase letter"
+        
+        # Check for numbers
+        if not re.search(r'[0-9]', password):
+            return False, "Password must contain at least one number"
+        
+        # Check for special characters
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'",.<>?/\\|`~]', password):
+            return False, "Password must contain at least one special character"
+        
+        return True, None
 
 
 class AuthenticationManager:

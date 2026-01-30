@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head> 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' http://127.0.0.1:5000 http://localhost:5000; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <title>Advanced Subdomain Scanner - Enterprise Grade Discovery</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="discovery-styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+    <link rel="stylesheet" href="professional.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -13,6 +19,7 @@
 <body class="scanner-body">
     <script src="session-manager.js"></script>
     <div class="parallax-bg-scanner"></div>
+    <div class="cursor-circle"></div>
     <div class="scanner-container">
         <!-- Main Content Grid -->
         <div class="scanner-grid">
@@ -22,8 +29,8 @@
                 <section class="hero-section">
                     <!-- Logout Button (Top Right) -->
                     <div class="logout-wrapper-scanner">
-                        <button onclick="logout()" class="logout-btn-scanner" title="Logout">
-                            <span>[EXIT]</span>
+                        <button id="logoutBtnScanner" class="logout-btn-scanner" title="Logout">
+                            <span>Logout</span>
                         </button>
                     </div>
                     
@@ -31,7 +38,7 @@
                         <!-- Back Button (Centered Above Title) -->
                         <div class="back-button-wrapper">
                             <a href="index.html" class="back-to-phishing-btn">
-                                <span class="btn-icon">[HOME]</span>
+                                
                                 <span class="btn-text">Back to Phishing Detector</span>
                             </a>
                         </div>
@@ -43,7 +50,9 @@
                             Leverage multiple discovery techniques including Certificate Transparency logs, 
                             DNS brute-forcing, and IP geolocation to uncover hidden subdomains instantly.
                         </p>
-            </div>
+                        
+                        <!-- Features List -->
+                       
         </section>
 
         <!-- Scanner Input Section -->
@@ -54,22 +63,20 @@
                     <p class="input-subtitle">Enter a domain to discover all its subdomains</p>
                 </div>
                 <div class="scanner-input-group">
-                    <div class="input-wrapper">
-                       
-                        <input 
-                            type="text" 
-                            id="domainInput" 
-                            class="scanner-input"
-                            placeholder="example.com"
-                        />
-                    </div>
-                    <button id="scanBtn" class="scanner-btn primary">
-                        <span class="btn-icon">[>]</span>
-                        <span class="btn-text">Launch Scan</span>
-                        <span class="btn-spinner hidden">
-                            <span class="spinner-icon">[.]</span>
-                            Scanning...
-                        </span>
+                    <input 
+                        type="text" 
+                        id="domainInput" 
+                        class="scanner-input"
+                        placeholder="example.com"
+                        autocomplete="off"
+                    >
+                    <button id="scanBtn" class="scanner-btn ui button primary">
+                        <span id="scanBtnText" class="btn-text-content">Launch Scan</span>
+                        <div id="scanBtnLoader" class="btn-loader hidden">
+                            <div class="inner one"></div>
+                            <div class="inner two"></div>
+                            <div class="inner three"></div>
+                        </div>
                     </button>
                 </div>
                 <div class="input-hints">
@@ -88,56 +95,228 @@
         <section id="loadingSection" class="loading-section hidden">
             <div class="loading-card">
                 <div class="loading-animation">
-                    <div class="radar-scanner">
-                        <div class="radar-circle"></div>
-                        <div class="radar-circle"></div>
-                        <div class="radar-circle"></div>
-                        <div class="radar-sweep"></div>
-                    </div>
+                    <svg class="microchip" viewBox="0 0 128 128" width="128px" height="128px" role="img" aria-label="A square pops in emitting waves and lines, and sparks run through the lines">
+	<symbol id="dot-1">
+		<circle r="3" cx="3" cy="38" />
+	</symbol>
+	<symbol id="dot-2">
+		<circle r="3" cx="3" cy="54" />
+	</symbol>
+	<symbol id="dot-3">
+		<circle r="3" cx="3" cy="70" />
+	</symbol>
+	<symbol id="dot-4">
+		<circle r="3" cx="3" cy="3" />
+	</symbol>
+	<symbol id="dot-5">
+		<circle r="3" cx="20" cy="3" />
+	</symbol>
+	<symbol id="dot-6">
+		<circle r="3" cx="3" cy="30" />
+	</symbol>
+	<symbol id="dot-7">
+		<circle r="3" cx="37" cy="3" />
+	</symbol>
+	<symbol id="dot-8">
+		<circle r="3" cx="54" cy="3" />
+	</symbol>
+	<symbol id="dot-9">
+		<circle r="3" cx="71" cy="3" />
+	</symbol>
+	<symbol id="line-1">
+		<polyline points="12 54,12 46,3 46,3 38" stroke-dasharray="42 42" />
+	</symbol>
+	<symbol id="line-2">
+		<polyline points="29 54,3 54" stroke-dasharray="42 42" />
+	</symbol>
+	<symbol id="line-3">
+		<polyline points="12 54,12 62,3 62,3 70" stroke-dasharray="42 42" />
+	</symbol>
+	<symbol id="line-4">
+		<polyline points="28 20,28 12,20 12,20 3" stroke-dasharray="60 60" />
+	</symbol>
+	<symbol id="line-5">
+		<polyline points="37 29,37 20,3 20,3 3" stroke-dasharray="60 60" />
+	</symbol>
+	<symbol id="line-6">
+		<polyline points="15 20,15 30,3 30" stroke-dasharray="60 60" />
+	</symbol>
+	<symbol id="line-7">
+		<polyline points="54 12,37 12,37 3" stroke-dasharray="43 43" />
+	</symbol>
+	<symbol id="line-8">
+		<polyline points="54 29,54 3" stroke-dasharray="43 43" />
+	</symbol>
+	<symbol id="line-9">
+		<polyline points="54 12,71 12,71 3" stroke-dasharray="43 43" />
+	</symbol>
+	<symbol id="spark-1">
+		<polyline points="12 54,12 46,3 46,3 38" stroke-dasharray="15 69" />
+	</symbol>
+	<symbol id="spark-2">
+		<polyline points="29 54,3 54" stroke-dasharray="15 69" />
+	</symbol>
+	<symbol id="spark-3">
+		<polyline points="12 54,12 62,3 62,3 70" stroke-dasharray="15 69" />
+	</symbol>
+	<symbol id="spark-4">
+		<polyline points="28 20,28 12,20 12,20 3" stroke-dasharray="15 105" />
+	</symbol>
+	<symbol id="spark-5">
+		<polyline points="37 29,37 20,3 20,3 3" stroke-dasharray="15 105" />
+	</symbol>
+	<symbol id="spark-6">
+		<polyline points="15 20,15 30,3 30" stroke-dasharray="15 105" />
+	</symbol>
+	<symbol id="spark-7">
+		<polyline points="54 12,37 12,37 3" stroke-dasharray="15 71" />
+	</symbol>
+	<symbol id="spark-8">
+		<polyline points="54 29,54 3" stroke-dasharray="15 71" />
+	</symbol>
+	<symbol id="spark-9">
+		<polyline points="54 12,71 12,71 3" stroke-dasharray="15 71" />
+	</symbol>
+	<symbol id="wave">
+		<rect x="3" y="3" rx="2.5" ry="2.5" width="44" height="44" />
+	</symbol>
+	<g transform="translate(10,10)">
+		<g class="microchip__lines" stroke-linecap="round" stroke-linejoin="round">
+			<g>
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--1" href="#line-1" />
+					<use class="microchip__spark microchip__spark--1" href="#spark-1" />
+					<use class="microchip__line microchip__line--2" href="#line-2" />
+					<use class="microchip__spark microchip__spark--2" href="#spark-2" />
+					<use class="microchip__line microchip__line--3" href="#line-3" />
+					<use class="microchip__spark microchip__spark--3" href="#spark-3" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--1" href="#dot-1" />
+					<use class="microchip__dot microchip__dot--2" href="#dot-2" />
+					<use class="microchip__dot microchip__dot--3" href="#dot-3" />
+				</g>
+			</g>
+			<g>
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--4" href="#line-4" />
+					<use class="microchip__spark microchip__spark--4" href="#spark-4" />
+					<use class="microchip__line microchip__line--5" href="#line-5" />
+					<use class="microchip__spark microchip__spark--5" href="#spark-5" />
+					<use class="microchip__line microchip__line--6" href="#line-6" />
+					<use class="microchip__spark microchip__spark--6" href="#spark-6" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--4" href="#dot-4" />
+					<use class="microchip__dot microchip__dot--5" href="#dot-5" />
+					<use class="microchip__dot microchip__dot--6" href="#dot-6" />
+				</g>
+			</g>
+			<g>
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--7" href="#line-7" />
+					<use class="microchip__spark microchip__spark--7" href="#spark-7" />
+					<use class="microchip__line microchip__line--8" href="#line-8" />
+					<use class="microchip__spark microchip__spark--8" href="#spark-8" />
+					<use class="microchip__line microchip__line--9" href="#line-9" />
+					<use class="microchip__spark microchip__spark--9" href="#spark-9" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--7" href="#dot-7" />
+					<use class="microchip__dot microchip__dot--8" href="#dot-8" />
+					<use class="microchip__dot microchip__dot--9" href="#dot-9" />
+				</g>
+			</g>
+			<g transform="translate(108,0) scale(-1,1)">
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--4" href="#line-4" />
+					<use class="microchip__spark microchip__spark--4" href="#spark-4" />
+					<use class="microchip__line microchip__line--5" href="#line-5" />
+					<use class="microchip__spark microchip__spark--5" href="#spark-5" />
+					<use class="microchip__line microchip__line--6" href="#line-6" />
+					<use class="microchip__spark microchip__spark--6" href="#spark-6" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--4" href="#dot-4" />
+					<use class="microchip__dot microchip__dot--5" href="#dot-5" />
+					<use class="microchip__dot microchip__dot--6" href="#dot-6" />
+				</g>
+			</g>
+			<g transform="translate(108,0) scale(-1,1)">
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--1" href="#line-1" />
+					<use class="microchip__spark microchip__spark--1" href="#spark-1" />
+					<use class="microchip__line microchip__line--2" href="#line-2" />
+					<use class="microchip__spark microchip__spark--2" href="#spark-2" />
+					<use class="microchip__line microchip__line--3" href="#line-3" />
+					<use class="microchip__spark microchip__spark--3" href="#spark-3" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--1" href="#dot-1" />
+					<use class="microchip__dot microchip__dot--2" href="#dot-2" />
+					<use class="microchip__dot microchip__dot--3" href="#dot-3" />
+				</g>
+			</g>
+			<g transform="translate(108,108) scale(-1,-1)">
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--4" href="#line-4" />
+					<use class="microchip__spark microchip__spark--4" href="#spark-4" />
+					<use class="microchip__line microchip__line--5" href="#line-5" />
+					<use class="microchip__spark microchip__spark--5" href="#spark-5" />
+					<use class="microchip__line microchip__line--6" href="#line-6" />
+					<use class="microchip__spark microchip__spark--6" href="#spark-6" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--4" href="#dot-4" />
+					<use class="microchip__dot microchip__dot--5" href="#dot-5" />
+					<use class="microchip__dot microchip__dot--6" href="#dot-6" />
+				</g>
+			</g>
+			<g transform="translate(0,108) scale(1,-1)">
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--7" href="#line-7" />
+					<use class="microchip__spark microchip__spark--7" href="#spark-7" />
+					<use class="microchip__line microchip__line--8" href="#line-8" />
+					<use class="microchip__spark microchip__spark--8" href="#spark-8" />
+					<use class="microchip__line microchip__line--9" href="#line-9" />
+					<use class="microchip__spark microchip__spark--9" href="#spark-9" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--7" href="#dot-7" />
+					<use class="microchip__dot microchip__dot--8" href="#dot-8" />
+					<use class="microchip__dot microchip__dot--9" href="#dot-9" />
+				</g>
+			</g>
+			<g transform="translate(0,108) scale(1,-1)">
+				<g fill="none" stroke="currentcolor">
+					<use class="microchip__line microchip__line--4" href="#line-4" />
+					<use class="microchip__spark microchip__spark--4" href="#spark-4" />
+					<use class="microchip__line microchip__line--5" href="#line-5" />
+					<use class="microchip__spark microchip__spark--5" href="#spark-5" />
+					<use class="microchip__line microchip__line--6" href="#line-6" />
+					<use class="microchip__spark microchip__spark--6" href="#spark-6" />
+				</g>
+				<g fill="currentcolor">
+					<use class="microchip__dot microchip__dot--4" href="#dot-4" />
+					<use class="microchip__dot microchip__dot--5" href="#dot-5" />
+					<use class="microchip__dot microchip__dot--6" href="#dot-6" />
+				</g>
+			</g>
+		</g>
+		<g transform="translate(29,29)">
+			<g class="microchip__center">
+				<g fill="none" stroke="currentcolor" stroke-width="6">
+					<use class="microchip__wave microchip__wave--1" href="#wave" />
+					<use class="microchip__wave microchip__wave--2" href="#wave" />
+				</g>
+				<rect class="microchip__core" fill="currentcolor" rx="5" ry="5" width="50" height="50" />
+			</g>
+		</g>
+	</g>
+</svg>
                 </div>
                 <h3 class="loading-title">Deep Scan in Progress</h3>
                 <p class="loading-subtitle">Analyzing domain infrastructure...</p>
-                
-                <div class="progress-container">
-                    <div class="progress-bar">
-                        <div class="progress-fill"></div>
-                    </div>
-                </div>
-
-                <div class="scanning-steps">
-                    <div class="scan-step active">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <div class="step-title">Certificate Transparency</div>
-                            <div class="step-description">Querying SSL certificate logs...</div>
-                        </div>
-                        <div class="step-status">[.]</div>
-                    </div>
-                    <div class="scan-step">
-                        <div class="step-number">2</div>
-                        <div class="step-content">
-                            <div class="step-title">DNS Enumeration</div>
-                            <div class="step-description">Brute-forcing common subdomains...</div>
-                        </div>
-                        <div class="step-status">[.]</div>
-                    </div>
-                    <div class="scan-step">
-                        <div class="step-number">3</div>
-                        <div class="step-content">
-                            <div class="step-title">IP Resolution</div>
-                            <div class="step-description">Resolving DNS records...</div>
-                        </div>
-                        <div class="step-status">[.]</div>
-                    </div>
-                    <div class="scan-step">
-                        <div class="step-number">4</div>
-                        <div class="step-content">
-                            <div class="step-title">Security Analysis</div>
-                            <div class="step-description">Detecting Cloudflare & WAF...</div>
-                        </div>
-                        <div class="step-status">[.]</div>
-                    </div>
-                </div>
             </div>
         </section>
 
@@ -145,13 +324,13 @@
         <section id="errorSection" class="error-section hidden">
             <div class="error-card">
                 <div class="error-icon-wrapper">
-                    <div class="error-icon">[!]</div>
+                    <div class="error-icon">⚠</div>
                 </div>
                 <h3 class="error-title">Scan Failed</h3>
                 <p id="errorMessage" class="error-message"></p>
                 <div class="error-actions">
-                    <button onclick="location.reload()" class="retry-btn">
-                        <span class="btn-icon">[R]</span>
+                    <button id="retryBtn" class="retry-btn">
+                        <span class="btn-icon">🔄</span>
                         Try Again
                     </button>
                 </div>
@@ -163,7 +342,7 @@
             <!-- Success Header -->
             <div class="results-header">
                 <div class="success-badge">
-                    <span class="success-icon">[OK]</span>
+                    <span class="success-icon">✓</span>
                     <span>Scan Complete</span>
                 </div>
                 <h2 class="results-title">Discovery Report</h2>
@@ -173,7 +352,7 @@
             <div class="summary-grid">
                 <div class="metric-card primary">
                     <div class="metric-header">
-                        <div class="metric-icon">[*]</div>
+                        <div class="metric-icon">●</div>
                         <span class="metric-trend up">Active</span>
                     </div>
                     <div class="metric-body">
@@ -184,7 +363,7 @@
                 
                 <div class="metric-card success">
                     <div class="metric-header">
-                        <div class="metric-icon">[+]</div>
+                        <div class="metric-icon">✓</div>
                         <span class="metric-trend up">Discovered</span>
                     </div>
                     <div class="metric-body">
@@ -195,7 +374,7 @@
                 
                 <div class="metric-card info">
                     <div class="metric-header">
-                        <div class="metric-icon">[NET]</div>
+                        <div class="metric-icon">🌐</div>
                         <span class="metric-trend">Primary</span>
                     </div>
                     <div class="metric-body">
@@ -207,7 +386,7 @@
                 
                 <div class="metric-card warning">
                     <div class="metric-header">
-                        <div class="metric-icon">[>]</div>
+                        <div class="metric-icon">→</div>
                         <span class="metric-trend">Fast</span>
                     </div>
                     <div class="metric-body">
@@ -221,27 +400,27 @@
             <div class="stats-overview">
                 <div class="stats-header">
                     <h3 class="stats-title">
-                        <span class="title-icon">[DATA]</span>
+                        <span class="title-icon">📊</span>
                         Scan Analytics
                     </h3>
                 </div>
                 <div class="stats-cards">
                     <div class="stat-card">
-                        <div class="stat-icon">[D]</div>
+                        <div class="stat-icon">📅</div>
                         <div class="stat-content">
                             <div class="stat-label">Scan Date</div>
                             <div class="stat-value" id="scanDate">--</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">[W]</div>
+                        <div class="stat-icon">🌍</div>
                         <div class="stat-content">
                             <div class="stat-label">Unique IP Addresses</div>
                             <div class="stat-value" id="uniqueIps">--</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">[SEC]</div>
+                        <div class="stat-icon">🔒</div>
                         <div class="stat-content">
                             <div class="stat-label">Cloudflare Protected</div>
                             <div class="stat-value" id="cloudflareCount">--</div>
@@ -254,7 +433,7 @@
             <div class="ip-distribution-section">
                 <div class="section-header">
                     <h3 class="section-title">
-                        <span class="title-icon">[IP]</span>
+                        <span class="title-icon">📍</span>
                         IP Address Distribution
                     </h3>
                     <span class="section-badge">Top 10</span>
@@ -267,13 +446,13 @@
                 <div class="data-table-header">
                     <div class="table-title-group">
                         <h3 class="table-title">
-                            <span class="title-icon">[+]</span>
+                            <span class="title-icon">✓</span>
                             Discovered Subdomains
                         </h3>
                         <span class="table-count" id="tableCount">0 results</span>
                     </div>
                     <button id="exportBtn" class="export-btn">
-                        <span class="btn-icon">[CSV]</span>
+                        <span class="btn-icon">⬇</span>
                         <span>Export CSV</span>
                     </button>
                 </div>
@@ -297,41 +476,74 @@
             </div>
         </section>
 
-        <!-- Scan History Section (Below Results) -->
-        <aside class="scan-history-sidebar">
-            <div class="history-header">
-                <h3 class="history-title">
-                    <span class="history-icon">[H]</span>
-                    Recent Scans
-                </h3>
-                <button id="clearHistoryBtn" class="clear-history-btn" title="Clear History">
-                    <span>[X]</span>
-                </button>
-            </div>
-
-            <div id="historyList" class="history-list">
-                <div class="history-empty">
-                    <div class="empty-icon">[?]</div>
-                    <p class="empty-text">No scan history yet</p>
-                    <p class="empty-hint">Start scanning domains to see history</p>
-                </div>
-            </div>
-        </aside>
+        <!-- Info Section -->
+        <div class="info-section card">
+            <h3>(%) About This Tool</h3>
+            <p>SecurityScanner PRO uses advanced reconnaissance techniques with <strong>8 powerful discovery methods</strong> to identify hidden subdomains and infrastructure.</p>
+            <ul class="info-list">
+                <li>[Certificate Transparency Log Analysis]</li>
+                <li>[Advanced DNS Enumeration & Brute-forcing]</li>
+                <li>[Real-time IP Address Resolution]</li>
+                <li>[Cloudflare & WAF Detection]</li>
+                <li>[Multi-source Data Integration]</li>
+                <li>[Geolocation & IP Mapping Analysis]</li>
+                <li>[CSV Export & Data Management]</li>
+                <li>[Enterprise-grade Security & Privacy]</li>
+            </ul>
+            <p class="warning"> <strong>Note:</strong> This is a powerful security tool for authorized reconnaissance only. Always obtain proper authorization before scanning any domain.</p>
+        </div>
 
         <!-- Footer -->
-        <footer class="scanner-footer">
-            <div class="footer-content">
-                <p class="footer-text">
-                    <span class="footer-icon">[#]</span>
-                    <strong>SecurityScanner PRO</strong> - Enterprise-grade subdomain discovery
-                </p>
-                <p class="footer-meta">
-                    Powered by Certificate Transparency, DNS Enumeration & Advanced IP Analysis
-                </p>
-            </div>
+        <footer class="footer">
+            <p>SecurityScanner PRO v1.0 - Enterprise Subdomain Discovery Tool</p>
         </footer>
             </div>
             <!-- End of scanner-main -->
+
+            <!-- Scan History Section (Right Sidebar) -->
+            <aside class="scan-history-sidebar-main">
+                <div class="history-header">
+                    <h3 class="history-title">
+                        <span class="history-icon">📋</span>
+                        Recent Scans
+                    </h3>
+                    <button id="clearHistoryBtn" class="clear-history-btn delete-btn-animated" title="Clear History">
+                        <div class="trash">
+                            <div class="top">
+                                <div class="paper"></div>
+                            </div>
+                            <div class="box"></div>
+                            <div class="check">
+                                <svg viewBox="0 0 8 6">
+                                    <polyline points="1 3.4 2.71428571 5 7 1"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <span>Clear</span>
+                    </button>
+                </div>
+
+                <div id="historyList" class="history-list">
+                    <div class="history-empty">
+                        <div class="empty-icon">📋</div>
+                        <p class="empty-text">No scan history yet</p>
+                        <p class="empty-hint">Start scanning to see history</p>
+                    </div>
+                </div>
+
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 85%;">Domain</th>
+                                <th style="width: 15%; text-align: center;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </aside>
         </div>
         <!-- End of scanner-grid -->
     </div>

@@ -1,9 +1,11 @@
 """
-Core detection logic - this is where the magic happens.
+Phishing URL Detection Engine - ML Model & Advanced Feature Extraction
 
-Extracts a bunch of features from URLs and feeds them to the ML model.
-Also added some custom rules because the model sometimes misses obvious stuff
-like raw IP addresses or URLs with @ symbols (seriously who uses those?).
+Multi-layer detection system:
+- Machine Learning (Random Forest classifier)
+- Heuristic rule-based analysis  
+- Content inspection & threat intelligence
+- SSL/TLS validation & domain reputation
 """
 
 import re
@@ -17,9 +19,6 @@ import ssl
 import socket
 from datetime import datetime
 import sys
-import pickle
-import io
-import warnings
 import gc  # Garbage collection for memory optimization
 
 # CRITICAL: Patch sklearn BEFORE any imports that use it
@@ -49,6 +48,18 @@ ensemble.RandomForestClassifier.__setstate__ = patched_rf_setstate
 
 print("[+] sklearn __setstate__ patches applied at import")
 
+# Global model cache to prevent reloading (memory efficient)
+_MODEL_CACHE = {
+    'model': None,
+    'scaler': None,
+    'feature_names': None
+}
+
+
+def get_cached_model():
+    """Get cached model - returns cached model if loaded"""
+    return _MODEL_CACHE['model']
+
 
 def check_website_live(url: str, timeout: int = 5) -> dict:
     """
@@ -57,6 +68,23 @@ def check_website_live(url: str, timeout: int = 5) -> dict:
     This does real HTTP requests so be careful not to spam it.
     Returns a bunch of info like status code, SSL cert, redirects, etc.
     """
+    # SECURITY: Prevent SSRF attacks - block local/internal networks
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname or parsed.netloc.split(':')[0]
+        
+        # Block local network addresses
+        blocked_hosts = ['localhost', '127.0.0.1', '0.0.0.0', '169.254.169.254']
+        if hostname in blocked_hosts:
+            return {'is_reachable': False, 'error': 'Local network address blocked', 'status_code': None}
+        
+        # Block private IP ranges
+        if hostname and (hostname.startswith('192.168.') or hostname.startswith('10.') or 
+                        hostname.startswith('172.') or hostname.startswith('127.')):
+            return {'is_reachable': False, 'error': 'Private network address blocked', 'status_code': None}
+    except:
+        pass
+    
     result = {
         'is_reachable': False,
         'status_code': None,
@@ -80,35 +108,39 @@ def check_website_live(url: str, timeout: int = 5) -> dict:
         
         start_time = datetime.now()
         
-        # Make request with redirects
-        response = requests.get(
-            url, 
-            timeout=timeout,
-            allow_redirects=True,
-            verify=False,  # Yeah I know, but we WANT to catch bad SSL certs
-            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        )
-        
-        end_time = datetime.now()
-        response_time = (end_time - start_time).total_seconds()
-        
-        # Basic info
-        result['is_reachable'] = True
-        result['status_code'] = response.status_code
-        result['response_time'] = round(response_time, 2)
-        result['final_url'] = response.url
-        result['redirects'] = len(response.history)
-        
-        # Headers
-        result['content_type'] = response.headers.get('Content-Type', 'Unknown')
-        result['server'] = response.headers.get('Server', 'Unknown')
-        
-        # Check for suspicious response patterns
-        if response.status_code >= 400:
-            result['suspicious_formats'].append(f'HTTP Error {response.status_code}')
-        
-        if result['redirects'] > 3:
-            result['suspicious_formats'].append(f'Too many redirects ({result["redirects"]}) - kinda sus')
+        # Make request with redirects using context manager to prevent resource leak
+        try:
+            response = requests.get(
+                url, 
+                timeout=timeout,
+                allow_redirects=True,
+                verify=True,  # SSL certificate validation enforced for security
+                headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            )
+            
+            end_time = datetime.now()
+            response_time = (end_time - start_time).total_seconds()
+            
+            # Basic info
+            result['is_reachable'] = True
+            result['status_code'] = response.status_code
+            result['response_time'] = round(response_time, 2)
+            result['final_url'] = response.url
+            result['redirects'] = len(response.history)
+            
+            # Headers
+            result['content_type'] = response.headers.get('Content-Type', 'Unknown')
+            result['server'] = response.headers.get('Server', 'Unknown')
+            
+            # Check for suspicious response patterns
+            if response.status_code >= 400:
+                result['suspicious_formats'].append(f'HTTP Error {response.status_code}')
+            
+            if result['redirects'] > 3:
+                result['suspicious_formats'].append(f'Too many redirects ({result["redirects"]}) - kinda sus')
+        except requests.exceptions.RequestException as e:
+            result['error'] = f'Request failed: {str(e)[:100]}'
+            return result
         
         # Check SSL certificate if it's HTTPS
         if url.startswith('https://'):
@@ -439,7 +471,7 @@ def fix_model_attributes(model):
 
 def load_model(model_path: str = 'phish_model.pkl'):
     """
-    Load the trained phishing detection model from disk.
+    Load the trained phishing detection model from disk (with caching for memory efficiency).
     sklearn __setstate__ patches are applied at module import.
     Additional fixing of model instances after loading.
     
@@ -449,6 +481,10 @@ def load_model(model_path: str = 'phish_model.pkl'):
     Returns:
         The loaded model object, or None if loading fails
     """
+    # Return cached model if available
+    if _MODEL_CACHE['model'] is not None:
+        return _MODEL_CACHE['model']
+    
     try:
         if not os.path.exists(model_path):
             print(f"[-] Model file not found: {model_path}")
@@ -460,6 +496,9 @@ def load_model(model_path: str = 'phish_model.pkl'):
         
         # Fix attributes on the loaded model instance
         model = fix_model_attributes(model)
+        
+        # Cache the model
+        _MODEL_CACHE['model'] = model
         
         return model
         
@@ -517,7 +556,7 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
             response = requests.get(
                 url, 
                 timeout=timeout, 
-                verify=False, 
+                verify=True,  # SSL validation enforced
                 headers=headers,
                 stream=True  # Stream response to save memory
             )
@@ -581,7 +620,7 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
             for admin_path in admin_paths:
                 admin_url = url.rstrip('/') + admin_path
                 try:
-                    admin_response = requests.head(admin_url, timeout=1, verify=False)  # Reduced timeout
+                    admin_response = requests.head(admin_url, timeout=1, verify=True)  # SSL validation enforced
                     if admin_response.status_code < 400:
                         scan_results['risk_indicators'].append(f"Admin panel potentially exposed: {admin_path}")
                     admin_response.close()
@@ -596,7 +635,7 @@ def perform_advanced_threat_detection(url: str, timeout: int = 5) -> Dict:
             
             for backup_url in backup_patterns:
                 try:
-                    backup_response = requests.head(backup_url, timeout=1, verify=False)  # Reduced timeout
+                    backup_response = requests.head(backup_url, timeout=1, verify=True)  # SSL validation enforced
                     if backup_response.status_code < 400:
                         scan_results['risk_indicators'].append(f"Backup file potentially accessible: {backup_url}")
                     backup_response.close()
@@ -730,7 +769,7 @@ def analyze_website_content(url: str, timeout: int = 5) -> Dict:
         max_response_size = 5 * 1024 * 1024  # Max 5MB for content analysis
         
         # Perform the request with full SSL context
-        response = requests.get(url, timeout=timeout, verify=False, headers=headers, allow_redirects=True)
+        response = requests.get(url, timeout=timeout, verify=True, headers=headers, allow_redirects=True)
         
         if response.status_code != 200:
             analysis['content_score'] = 0.35
@@ -1029,13 +1068,16 @@ def predict_url(url: str, model) -> Tuple[int, float, Dict]:
     # Brand impersonation check - this catches a LOT of phishing
     major_brands = ['paypal', 'amazon', 'apple', 'microsoft', 'google', 'facebook', 'ebay', 'netflix', 'instagram']
     domain_match = re.search(r'(?:https?://)?(?:www\.)?([^/:?#]+)', url_lower)
-    if domain_match:
+    if domain_match and domain_match.group(1):
         domain = domain_match.group(1)
         # If the URL mentions PayPal but isn't actually paypal.com, that's sus
         for brand in major_brands:
             if brand in url_lower and not domain.endswith(f'{brand}.com'):
                 phishing_score += 30  # Definitely trying to impersonate
                 break
+    else:
+        # No valid domain found - suspicious
+        phishing_score += 20
     
     # Final decision - override ML if our rules are confident enough
     if phishing_score >= 50:

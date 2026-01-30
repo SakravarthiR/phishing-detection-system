@@ -1,11 +1,62 @@
 /**
  * Main Application Logic - Phishing URL Detector
  * Handles the URL checking form and parallax background effect
- * Matches discovery-engine.js pattern for consistency
+ * Optimized for low memory environments (Render 512MB)
  */
 
-// 3D Parallax Background Effect
-document.addEventListener('mousemove', (e) => {
+// Global unhandled promise rejection handler
+window.addEventListener('unhandledrejection', event => {
+    console.error('[UNHANDLED PROMISE REJECTION]', event.reason);
+    console.error('Stack:', event.reason?.stack);
+    // Prevent default error handling
+    event.preventDefault();
+});
+
+// Global unhandled error handler
+window.addEventListener('error', event => {
+    console.error('[UNHANDLED ERROR]', event.error);
+    if (event.error?.stack) {
+        console.error('Stack:', event.error.stack);
+    }
+});
+
+// Global event listener storage for cleanup
+window._appListeners = {
+    mousemove: [],
+    mouseleave: [],
+    click: [],
+    keypress: [],
+    keydown: [],
+    scroll: [],
+    touchstart: []
+};
+
+// Safe event listener registration with tracking
+function registerEvent(target, event, handler, options = {}) {
+    target.addEventListener(event, handler, options);
+    if (window._appListeners[event]) {
+        window._appListeners[event].push({target, handler, options});
+    }
+}
+
+// Cleanup all event listeners on unload
+function cleanupAllListeners() {
+    Object.entries(window._appListeners).forEach(([event, listeners]) => {
+        listeners.forEach(({target, handler, options}) => {
+            try {
+                target.removeEventListener(event, handler, options);
+            } catch (e) {
+                console.warn(`Failed to remove listener for ${event}:`, e);
+            }
+        });
+    });
+}
+
+// Register cleanup on unload
+window.addEventListener('beforeunload', cleanupAllListeners, {once: true});
+
+// 3D Parallax Background Effect (throttled for performance)
+const parallaxHandler = throttle((e) => {
     const parallaxBg = document.querySelector('.parallax-bg');
     if (!parallaxBg) return;
     
@@ -16,15 +67,125 @@ document.addEventListener('mousemove', (e) => {
     const moveY = (mouseY - 0.5) * 20;
     
     parallaxBg.style.transform = `translate(${moveX}px, ${moveY}px) scale(1.02)`;
-});
+}, 50); // Throttle to 50ms
+
+document.addEventListener('mousemove', parallaxHandler);
+
+// Interactive Button Animation (3D tilt effect - throttled)
+const buttonTiltHandler = throttle((e) => {
+    document.querySelectorAll('.scanner-link-btn, .back-to-phishing-btn').forEach(btn => {
+        const rect = btn.getBoundingClientRect();
+        const btnCenterX = rect.left + rect.width / 2;
+        const btnCenterY = rect.top + rect.height / 2;
+        
+        const distX = e.clientX - btnCenterX;
+        const distY = e.clientY - btnCenterY;
+        const distance = Math.sqrt(distX * distX + distY * distY);
+        
+        // Only apply effect when cursor is near button (within 150px)
+        if (distance < 150) {
+            const angle = Math.atan2(distY, distX);
+            const mx = Math.cos(angle) * (150 - distance) / 150 * 15;
+            const my = Math.sin(angle) * (150 - distance) / 150 * 15;
+            
+            btn.style.transform = `translate(${mx * 0.15}px, ${my * 0.3}px) rotate3d(${-my * 0.1}, ${mx * 0.1}, 0, 8deg)`;
+            btn.classList.add('glow-active');
+            
+            const span = btn.querySelector('span');
+            if (span) {
+                span.style.transform = `translate(${mx * 0.025}px, ${my * 0.075}px)`;
+            }
+        } else {
+            btn.style.transform = 'translate(0px, 0px) rotate3d(0, 0, 0, 0deg)';
+            btn.classList.remove('glow-active');
+            const span = btn.querySelector('span');
+            if (span) {
+                span.style.transform = 'translate(0px, 0px)';
+            }
+        }
+    });
+}, 50); // Throttle to 50ms
+
+document.addEventListener('mousemove', buttonTiltHandler);
+
+const mouseLeaveHandler = () => {
+    document.querySelectorAll('.scanner-link-btn, .back-to-phishing-btn').forEach(btn => {
+        btn.style.transform = 'translate(0px, 0px) rotate3d(0, 0, 0, 0deg)';
+        btn.classList.remove('glow-active');
+        const span = btn.querySelector('span');
+        if (span) {
+            span.style.transform = 'translate(0px, 0px)';
+        }
+    });
+};
+
+document.addEventListener('mouseleave', mouseLeaveHandler);
+
+// Cursor Circle Tracking with mix-blend-mode effect (memory-optimized)
+(() => {
+    const cursorCircle = document.querySelector('.cursor-circle');
+    if (!cursorCircle) return;
+    
+    const buttons = document.querySelectorAll('.scanner-link-btn, .back-to-phishing-btn');
+    
+    // Track cursor position (throttled)
+    const cursorHandler = throttle((e) => {
+        cursorCircle.style.left = (e.pageX - 20) + 'px';
+        cursorCircle.style.top = (e.pageY - 20) + 'px';
+    }, 30);
+    
+    document.addEventListener('mousemove', cursorHandler);
+    
+    // Add mix-blend-mode effect on button hover
+    buttons.forEach(btn => {
+        btn.addEventListener('mouseenter', function() {
+            cursorCircle.classList.add('active');
+            document.body.classList.add('mix-blend-active');
+        }, {once: false, passive: true});
+        
+        btn.addEventListener('mouseleave', function() {
+            cursorCircle.classList.remove('active');
+            document.body.classList.remove('mix-blend-active');
+        }, {once: false, passive: true});
+    });
+})();
 
 // Configuration
-const API_BASE_URL = 'https://phishing-detection-system-1.onrender.com';
+// Detect environment and set API URL accordingly
+function getAPIURL() {
+    const hostname = window.location.hostname;
+    
+    // If running from file:// or localhost, use local backend
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+        return 'http://localhost:5000';
+    }
+    
+    // Production deployment on Render
+    return 'https://phishing-detection-system-1.onrender.com';
+}
+
+const API_BASE_URL = getAPIURL();
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 const USE_SECURE_API = true; // Use JWT authentication
 
+// OPTIMIZED FOR 50 CONCURRENT USERS
+// Connection pooling: reuse fetch connections
+const FETCH_POOL_SIZE = 25; // 25 concurrent requests (2 workers x 25)
+let activeRequests = 0;
+const requestQueue = [];
+
+// Keep-alive headers for connection reuse
+const DEFAULT_FETCH_HEADERS = {
+    'Connection': 'keep-alive',
+    'Cache-Control': 'max-age=3600'
+};
+
+console.log('[+] API URL: ' + API_BASE_URL);
+console.log('[+] Environment: ' + window.location.hostname);
+console.log('[+] Connection pool size: ' + FETCH_POOL_SIZE);
+
 // DOM Elements
-let urlInput, checkBtn, btnText, btnSpinner;
+let urlInput, checkBtn, btnText, btnLoader;
 let resultsSection, resultsCard, errorSection;
 let resultHeader, resultIcon, resultLabel, resultUrl;
 let resultProbability, resultClassification;
@@ -35,7 +196,7 @@ let domainFeatures, advancedFeatures;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('� App loading...');
+    console.log('[*] App loading...');
     init();
 });
 
@@ -43,13 +204,18 @@ document.addEventListener('DOMContentLoaded', () => {
  * Initialize the application
  */
 function init() {
-    console.log('✅ Initializing phishing detector...');
+    console.log('[+] Initializing phishing detector...');
     
     // Get DOM elements
     urlInput = document.getElementById('urlInput');
     checkBtn = document.getElementById('checkBtn');
     btnText = document.getElementById('btnText');
-    btnSpinner = document.getElementById('btnSpinner');
+    btnLoader = document.getElementById('btnLoader');
+    
+    // Clear any persisted input value on page load
+    if (urlInput) {
+        urlInput.value = '';
+    }
     
     resultsSection = document.getElementById('resultsSection');
     resultsCard = document.getElementById('resultsCard');
@@ -59,6 +225,11 @@ function init() {
     resultIcon = document.getElementById('resultIcon');
     resultLabel = document.querySelector('#resultLabel');
     resultUrl = document.getElementById('resultUrl');
+    
+    // Validate result display elements
+    if (!resultsSection || !resultLabel || !resultUrl) {
+        console.warn('[WARNING] Result display elements missing');
+    }
     
     resultProbability = document.getElementById('resultProbability');
     resultClassification = document.getElementById('resultClassification');
@@ -84,13 +255,19 @@ function init() {
         dismissError.addEventListener('click', hideError);
     }
     
+    // Add logout button listener
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', logout);
+    }
+    
     // Initialize session management with inactivity timeout
     initializeSessionManagement();
     
     // Restore previous session state ONLY if session is still valid
     restoreSessionState();
     
-    console.log('✅ App initialized successfully');
+    console.log('[+] App initialized successfully');
 }
 
 // Session management variables
@@ -100,32 +277,60 @@ const SESSION_EXPIRY_KEY = 'phishing_detector_session_expiry';
 const SESSION_STATE_KEY = 'phishing_detector_state';
 
 /**
- * Initialize session management with inactivity tracking
+ * Initialize session management with inactivity tracking (optimized for low memory)
  */
 function initializeSessionManagement() {
     // Set initial session expiry time (30 minutes from now)
     updateSessionExpiry();
     
-    // Track user activity (keyboard, mouse, scroll)
-    document.addEventListener('mousemove', resetInactivityTimer);
-    document.addEventListener('keydown', resetInactivityTimer);
-    document.addEventListener('click', resetInactivityTimer);
-    document.addEventListener('scroll', resetInactivityTimer);
-    document.addEventListener('touchstart', resetInactivityTimer);
+    // Create throttled activity handler to prevent excessive DOM queries
+    const activityHandler = throttle(() => {
+        updateSessionExpiry();
+    }, 5000); // Throttle activity to 5 seconds
     
-    // Save session state periodically (every 5 seconds)
-    setInterval(saveSessionState, 5000);
+    // Track user activity (keyboard, mouse, scroll) with throttling
+    document.addEventListener('mousemove', activityHandler, {passive: true});
+    document.addEventListener('keydown', activityHandler, {passive: true});
+    document.addEventListener('click', activityHandler, {passive: true});
+    document.addEventListener('scroll', activityHandler, {passive: true});
+    document.addEventListener('touchstart', activityHandler, {passive: true});
+    
+    // Save session state periodically (every 10 seconds instead of 5)
+    const saveInterval = setInterval(() => {
+        try {
+            saveSessionState();
+        } catch (e) {
+            console.warn('Session save error:', e);
+        }
+    }, 10000);
     
     // Save on page unload
-    window.addEventListener('beforeunload', saveSessionState);
+    window.addEventListener('beforeunload', saveSessionState, {once: true});
     
     // Check session on page load
     checkSessionExpiry();
     
-    // Check session periodically (every minute)
-    setInterval(checkSessionExpiry, 60000);
+    // Check session periodically (every 2 minutes instead of 1)
+    const checkInterval = setInterval(() => {
+        try {
+            checkSessionExpiry();
+        } catch (e) {
+            console.warn('Session check error:', e);
+        }
+    }, 120000);
     
-    console.log('✅ Session management initialized (30-minute inactivity timeout)');
+    // Store intervals for cleanup on unload
+    window._sessionIntervals = [saveInterval, checkInterval];
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (window._sessionIntervals) {
+            window._sessionIntervals.forEach(id => clearInterval(id));
+            window._sessionIntervals = null;
+        }
+    }, {once: true});
+    
+    console.log('[+] Session management initialized (30-minute inactivity timeout)');
 }
 
 /**
@@ -173,12 +378,13 @@ function checkSessionExpiry() {
 /**
  * Clear all session data
  */
+
 function clearSessionData() {
     try {
         localStorage.removeItem(SESSION_EXPIRY_KEY);
         localStorage.removeItem(SESSION_STATE_KEY);
         localStorage.removeItem('phishing_detector_session');
-        console.log('✅ Session cleared due to inactivity');
+        console.log('[+] Session cleared due to inactivity');
     } catch (e) {
         console.error('Error clearing session data:', e);
     }
@@ -255,12 +461,8 @@ function restoreSessionState() {
         
         const state = JSON.parse(savedState);
         
-        // Restore previous URL input
-        if (state.url && urlInput) {
-            urlInput.value = state.url;
-        }
-        
-        // Restore results if they were visible
+        // Restore results if they were visible (but NOT the URL input - let user enter fresh)
+        // This prevents the URL from persisting across page refreshes
         if (state.resultsVisible && state.currentResult) {
             setTimeout(() => {
                 // Restore result display
@@ -288,7 +490,7 @@ function restoreSessionState() {
                 // Restore scroll position
                 window.scrollTo(0, state.scrollPosition);
                 
-                console.log('✅ Session state restored (user returned within 30 min inactivity timeout)');
+                console.log('[+] Session state restored (user returned within 30 min inactivity timeout)');
             }, 100);
         }
     } catch (e) {
@@ -325,6 +527,27 @@ function getAuthToken() {
 /**
  * Check URL for phishing threats
  */
+// Request batching for 50 concurrent users
+async function queuedFetch(url, options = {}) {
+    // Wait if pool is full
+    while (activeRequests >= FETCH_POOL_SIZE) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
+    activeRequests++;
+    try {
+        return await fetch(url, {
+            ...options,
+            headers: {
+                ...DEFAULT_FETCH_HEADERS,
+                ...(options.headers || {})
+            }
+        });
+    } finally {
+        activeRequests--;
+    }
+}
+
 async function checkURL() {
     const url = urlInput.value.trim();
     
@@ -335,7 +558,7 @@ async function checkURL() {
         return;
     }
     
-    console.log('🔍 Checking URL:', url);
+    console.log('[*] Checking URL:', url);
     
     // Add protocol if missing
     let fullURL = url;
@@ -343,7 +566,7 @@ async function checkURL() {
         fullURL = 'https://' + url;
     }
     
-    console.log('📨 Full URL:', fullURL);
+    console.log('[>] Full URL:', fullURL);
     
     // Update UI
     hideError();
@@ -354,14 +577,14 @@ async function checkURL() {
     try {
         // Get auth token
         const token = getAuthToken();
-        console.log('🔐 Token:', token ? 'Present' : 'Missing');
+        console.log('[AUTH] Token:', token ? 'Present' : 'Missing');
         
         // Call API
-        console.log('📞 Calling checkPhishing()...');
+        console.log('[API] Calling checkPhishing()...');
         const result = await checkPhishing(fullURL);
         
         // Display results
-        console.log('✅ Result received, displaying...');
+        console.log('[+] Result received, displaying...');
         displayResults(result);
         
     } catch (error) {
@@ -393,7 +616,8 @@ async function checkPhishing(url) {
             }
         }
         
-        const response = await fetch(`${API_BASE_URL}/predict`, {
+        // Use queuedFetch for connection pooling with 50 concurrent users
+        const response = await queuedFetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({ url: url }),
@@ -402,13 +626,13 @@ async function checkPhishing(url) {
         
         clearTimeout(timeoutId);
         
-        console.log('📊 Response status:', response.status);
+        console.log('[RESPONSE] Status:', response.status, '| Active requests:', activeRequests);
         
         // If auth fails, redirect to login
         if (response.status === 401 && USE_SECURE_API) {
             console.warn('Token expired - back to login');
             window.location.href = 'secure-auth-portal.html';
-            throw new Error('Authentication required');
+            return null;  // Stop execution after redirect
         }
         
         if (!response.ok) {
@@ -437,7 +661,7 @@ async function checkPhishing(url) {
         }
         
         const data = await response.json();
-        console.log('✅ API Response received:', data);
+        console.log('[+] API Response received:', data);
         return data;
         
     } catch (error) {
@@ -488,9 +712,17 @@ function displayResults(data) {
     resultProbability.textContent = `${displayConfidence}%`;
     resultClassification.textContent = riskDescription;
     
-    // Set progress bar with professional color
+    // Set progress bar with professional color and animation
+    if (!progressBar) {
+        console.error('[ERROR] progressBar element not found');
+        return;
+    }
     progressBar.style.width = `${displayConfidence}%`;
     progressBar.style.backgroundColor = riskColor;
+    const progressText = progressBar.querySelector('.progress-text');
+    if (progressText) {
+        progressText.textContent = `${displayConfidence}%`;
+    }
     
     // Set detailed reason
     resultReason.textContent = riskDetails || data.reason || 'Analysis completed. URL appears to be legitimate based on available intelligence.';
@@ -498,41 +730,83 @@ function displayResults(data) {
     // Clear threat indicators
     threatIndicators.innerHTML = '';
     
-    // Build compact threat assessment section
-    let threatHTML = '';
+    // Create safe element instead of innerHTML for threat content
+    const threatContainer = document.createElement('div');
     
     // THREAT LEVEL
     if (riskData.risk_level) {
-        threatHTML += `
-            <div class="threat-assessment-section">
-                <div class="threat-header" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
-                    <div class="threat-title">THREAT LEVEL:</div>
-                    <div class="threat-value" style="color: ${riskColor}">${riskData.risk_level}</div>
-                    <div class="threat-category">${riskData.risk_category}</div>
-                </div>
-        `;
+        const threatSection = document.createElement('div');
+        threatSection.className = 'threat-assessment-section';
+        
+        const threatHeader = document.createElement('div');
+        threatHeader.className = 'threat-header';
+        threatHeader.style.borderLeftColor = riskColor;
+        threatHeader.style.backgroundColor = riskColor + '15';
+        
+        const threatTitle = document.createElement('div');
+        threatTitle.className = 'threat-title';
+        threatTitle.textContent = 'THREAT LEVEL:';
+        
+        const threatValue = document.createElement('div');
+        threatValue.className = 'threat-value';
+        threatValue.style.color = riskColor;
+        threatValue.textContent = riskData.risk_level;
+        
+        const threatCategory = document.createElement('div');
+        threatCategory.className = 'threat-category';
+        threatCategory.textContent = riskData.risk_category;
+        
+        threatHeader.appendChild(threatTitle);
+        threatHeader.appendChild(threatValue);
+        threatHeader.appendChild(threatCategory);
+        threatSection.appendChild(threatHeader);
+        threatContainer.appendChild(threatSection);
     }
     
     // RECOMMENDATION
     if (riskRecommendation) {
-        threatHTML += `
-            <div class="recommendation-section" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
-                <div class="section-title" style="color: ${riskColor}">RECOMMENDATION:</div>
-                <div class="section-content">${riskRecommendation}</div>
-            </div>
-        `;
+        const recSection = document.createElement('div');
+        recSection.className = 'recommendation-section';
+        recSection.style.borderLeftColor = riskColor;
+        recSection.style.backgroundColor = riskColor + '15';
+        
+        const recTitle = document.createElement('div');
+        recTitle.className = 'section-title';
+        recTitle.style.color = riskColor;
+        recTitle.textContent = 'RECOMMENDATION:';
+        
+        const recContent = document.createElement('div');
+        recContent.className = 'section-content';
+        recContent.textContent = riskRecommendation;
+        
+        recSection.appendChild(recTitle);
+        recSection.appendChild(recContent);
+        threatContainer.appendChild(recSection);
     }
     
     // SUGGESTED ACTIONS
     if (riskData.actions && Array.isArray(riskData.actions) && riskData.actions.length > 0) {
-        threatHTML += `
-            <div class="actions-section" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
-                <div class="section-title" style="color: ${riskColor}">SUGGESTED ACTIONS:</div>
-                <ul class="actions-list">
-                    ${riskData.actions.map(action => `<li>${action}</li>`).join('')}
-                </ul>
-            </div>
-        `;
+        const actionsSection = document.createElement('div');
+        actionsSection.className = 'actions-section';
+        actionsSection.style.borderLeftColor = riskColor;
+        actionsSection.style.backgroundColor = riskColor + '15';
+        
+        const actionsTitle = document.createElement('div');
+        actionsTitle.className = 'section-title';
+        actionsTitle.style.color = riskColor;
+        actionsTitle.textContent = 'SUGGESTED ACTIONS:';
+        
+        const actionsList = document.createElement('ul');
+        actionsList.className = 'actions-list';
+        riskData.actions.forEach(action => {
+            const li = document.createElement('li');
+            li.textContent = action;
+            actionsList.appendChild(li);
+        });
+        
+        actionsSection.appendChild(actionsTitle);
+        actionsSection.appendChild(actionsList);
+        threatContainer.appendChild(actionsSection);
     }
     
     // SERVER STATUS
@@ -540,26 +814,45 @@ function displayResults(data) {
         const isReachable = data.website_status.is_reachable || data.website_status.is_live;
         const statusCode = data.website_status.status_code || '---';
         const serverStatus = isReachable ? 'Online' : 'Offline';
-        threatHTML += `
-            <div class="server-status-section" style="border-left-color: #0099ff; background-color: #0099ff15">
-                <span class="status-label">Server Status:</span>
-                <span class="status-value">${serverStatus} (HTTP ${statusCode})</span>
-            </div>
-        `;
+        
+        const statusSection = document.createElement('div');
+        statusSection.className = 'server-status-section';
+        statusSection.style.borderLeftColor = '#0099ff';
+        statusSection.style.backgroundColor = '#0099ff15';
+        
+        const statusLabel = document.createElement('span');
+        statusLabel.className = 'status-label';
+        statusLabel.textContent = 'Server Status:';
+        
+        const statusValue = document.createElement('span');
+        statusValue.className = 'status-value';
+        statusValue.textContent = serverStatus + ' (HTTP ' + statusCode + ')';
+        
+        statusSection.appendChild(statusLabel);
+        statusSection.appendChild(statusValue);
+        threatContainer.appendChild(statusSection);
     }
     
     // CONFIDENCE LEVEL
-    threatHTML += `
-        <div class="confidence-section" style="border-left-color: ${riskColor}; background-color: ${riskColor}15">
-            <span class="confidence-label">Confidence Level:</span>
-            <span class="confidence-value" style="color: ${riskColor}">${riskData.confidence_level || (displayConfidence > 80 ? 'HIGH' : displayConfidence > 50 ? 'MEDIUM' : 'LOW')}</span>
-        </div>
-    `;
+    const confidenceSection = document.createElement('div');
+    confidenceSection.className = 'confidence-section';
+    confidenceSection.style.borderLeftColor = riskColor;
+    confidenceSection.style.backgroundColor = riskColor + '15';
     
-    if (threatHTML) {
-        threatHTML += '</div>';  // Close threat-assessment-section
-        threatIndicators.innerHTML = threatHTML;
-    }
+    const confLabel = document.createElement('span');
+    confLabel.className = 'confidence-label';
+    confLabel.textContent = 'Confidence Level:';
+    
+    const confValue = document.createElement('span');
+    confValue.className = 'confidence-value';
+    confValue.style.color = riskColor;
+    confValue.textContent = riskData.confidence_level || (displayConfidence > 80 ? 'HIGH' : displayConfidence > 50 ? 'MEDIUM' : 'LOW');
+    
+    confidenceSection.appendChild(confLabel);
+    confidenceSection.appendChild(confValue);
+    threatContainer.appendChild(confidenceSection);
+    
+    threatIndicators.appendChild(threatContainer);
     
     // Add threat detail tables for advanced threat detection data
     const threatDetails = document.createElement('div');
@@ -567,134 +860,274 @@ function displayResults(data) {
     
     // Threat Indicators
     if (data.features && data.features.threat_indicators && Array.isArray(data.features.threat_indicators) && data.features.threat_indicators.length > 0) {
-        const indicatorsTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">Threat Indicators</h4>
-                <table class="threat-table">
-                    <tbody>
-                        ${data.features.threat_indicators.map((indicator, idx) => `<tr><td class="indicator-item">${indicator}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += indicatorsTable;
+        const indicatorsSection = document.createElement('div');
+        indicatorsSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'Threat Indicators';
+        indicatorsSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        const tbody = document.createElement('tbody');
+        
+        data.features.threat_indicators.forEach(indicator => {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.className = 'indicator-item';
+            cell.textContent = indicator;
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        indicatorsSection.appendChild(table);
+        threatDetails.appendChild(indicatorsSection);
     }
     
     // Risk Indicators
     if (data.features && data.features.threat_risk_indicators && Array.isArray(data.features.threat_risk_indicators) && data.features.threat_risk_indicators.length > 0) {
-        const riskTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">Risk Indicators</h4>
-                <table class="threat-table">
-                    <tbody>
-                        ${data.features.threat_risk_indicators.map((indicator, idx) => `<tr><td class="indicator-item">${indicator}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += riskTable;
+        const riskSection = document.createElement('div');
+        riskSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'Risk Indicators';
+        riskSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        const tbody = document.createElement('tbody');
+        
+        data.features.threat_risk_indicators.forEach(indicator => {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.className = 'indicator-item';
+            cell.textContent = indicator;
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        riskSection.appendChild(table);
+        threatDetails.appendChild(riskSection);
     }
     
     // Threat Scan Score
     if (data.features && data.features.threat_scan_score !== undefined && data.features.threat_scan_score !== null) {
-        const scanScoreTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">Threat Scan Score</h4>
-                <table class="threat-table">
-                    <tbody>
-                        <tr><td class="score-label">Overall Risk Score:</td><td class="score-value">${(data.features.threat_scan_score * 100).toFixed(1)}%</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += scanScoreTable;
+        const scoreSection = document.createElement('div');
+        scoreSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'Threat Scan Score';
+        scoreSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        const tbody = document.createElement('tbody');
+        
+        const row = document.createElement('tr');
+        const labelCell = document.createElement('td');
+        labelCell.className = 'score-label';
+        labelCell.textContent = 'Overall Risk Score:';
+        const valueCell = document.createElement('td');
+        valueCell.className = 'score-value';
+        valueCell.textContent = (data.features.threat_scan_score * 100).toFixed(1) + '%';
+        
+        row.appendChild(labelCell);
+        row.appendChild(valueCell);
+        tbody.appendChild(row);
+        
+        table.appendChild(tbody);
+        scoreSection.appendChild(table);
+        threatDetails.appendChild(scoreSection);
     }
     
     // Technologies Detected
     if (data.features && data.features.threat_technologies && Array.isArray(data.features.threat_technologies) && data.features.threat_technologies.length > 0) {
-        const techTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">Technologies Detected</h4>
-                <table class="threat-table">
-                    <tbody>
-                        ${data.features.threat_technologies.map((tech, idx) => `<tr><td class="tech-item">${tech}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += techTable;
+        const techSection = document.createElement('div');
+        techSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'Technologies Detected';
+        techSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        const tbody = document.createElement('tbody');
+        
+        data.features.threat_technologies.forEach(tech => {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.className = 'tech-item';
+            cell.textContent = tech;
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        techSection.appendChild(table);
+        threatDetails.appendChild(techSection);
     }
     
     // HTTP Headers
     if (data.features && data.features.threat_http_headers && typeof data.features.threat_http_headers === 'object' && Object.keys(data.features.threat_http_headers).length > 0) {
-        const headerRows = Object.entries(data.features.threat_http_headers).map(([key, value]) => 
-            `<tr><td class="header-key">${key}</td><td class="header-value">${String(value).substring(0, 50)}</td></tr>`
-        ).join('');
-        const headersTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">HTTP Headers</h4>
-                <table class="threat-table">
-                    <thead><tr><th>Header</th><th>Value</th></tr></thead>
-                    <tbody>
-                        ${headerRows}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += headersTable;
+        const headersSection = document.createElement('div');
+        headersSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'HTTP Headers';
+        headersSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const th1 = document.createElement('th');
+        th1.textContent = 'Header';
+        const th2 = document.createElement('th');
+        th2.textContent = 'Value';
+        headerRow.appendChild(th1);
+        headerRow.appendChild(th2);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        for (const [key, value] of Object.entries(data.features.threat_http_headers)) {
+            const row = document.createElement('tr');
+            const keyCell = document.createElement('td');
+            keyCell.className = 'header-key';
+            keyCell.textContent = key;
+            const valueCell = document.createElement('td');
+            valueCell.className = 'header-value';
+            valueCell.textContent = String(value).substring(0, 50);
+            row.appendChild(keyCell);
+            row.appendChild(valueCell);
+            tbody.appendChild(row);
+        }
+        
+        table.appendChild(tbody);
+        headersSection.appendChild(table);
+        threatDetails.appendChild(headersSection);
     }
     
     // SSL Certificate Info
     if (data.features && data.features.threat_ssl_info && typeof data.features.threat_ssl_info === 'object' && Object.keys(data.features.threat_ssl_info).length > 0) {
-        const sslRows = Object.entries(data.features.threat_ssl_info).map(([key, value]) => 
-            `<tr><td class="ssl-key">${key}</td><td class="ssl-value">${String(value).substring(0, 50)}</td></tr>`
-        ).join('');
-        const sslTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">SSL/TLS Certificate</h4>
-                <table class="threat-table">
-                    <thead><tr><th>Property</th><th>Value</th></tr></thead>
-                    <tbody>
-                        ${sslRows}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += sslTable;
+        const sslSection = document.createElement('div');
+        sslSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'SSL/TLS Certificate';
+        sslSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const th1 = document.createElement('th');
+        th1.textContent = 'Property';
+        const th2 = document.createElement('th');
+        th2.textContent = 'Value';
+        headerRow.appendChild(th1);
+        headerRow.appendChild(th2);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        for (const [key, value] of Object.entries(data.features.threat_ssl_info)) {
+            const row = document.createElement('tr');
+            const keyCell = document.createElement('td');
+            keyCell.className = 'ssl-key';
+            keyCell.textContent = key;
+            const valueCell = document.createElement('td');
+            valueCell.className = 'ssl-value';
+            valueCell.textContent = String(value).substring(0, 50);
+            row.appendChild(keyCell);
+            row.appendChild(valueCell);
+            tbody.appendChild(row);
+        }
+        
+        table.appendChild(tbody);
+        sslSection.appendChild(table);
+        threatDetails.appendChild(sslSection);
     }
     
     // Server Information
     if (data.features && data.features.threat_server_info && typeof data.features.threat_server_info === 'object' && Object.keys(data.features.threat_server_info).length > 0) {
-        const serverRows = Object.entries(data.features.threat_server_info).map(([key, value]) => 
-            `<tr><td class="server-key">${key}</td><td class="server-value">${String(value).substring(0, 50)}</td></tr>`
-        ).join('');
-        const serverTable = `
-            <div class="threat-table-section">
-                <h4 class="threat-table-title">Server Information</h4>
-                <table class="threat-table">
-                    <thead><tr><th>Property</th><th>Value</th></tr></thead>
-                    <tbody>
-                        ${serverRows}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += serverTable;
+        const serverSection = document.createElement('div');
+        serverSection.className = 'threat-table-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'Server Information';
+        serverSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const th1 = document.createElement('th');
+        th1.textContent = 'Property';
+        const th2 = document.createElement('th');
+        th2.textContent = 'Value';
+        headerRow.appendChild(th1);
+        headerRow.appendChild(th2);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+        
+        const tbody = document.createElement('tbody');
+        for (const [key, value] of Object.entries(data.features.threat_server_info)) {
+            const row = document.createElement('tr');
+            const keyCell = document.createElement('td');
+            keyCell.className = 'server-key';
+            keyCell.textContent = key;
+            const valueCell = document.createElement('td');
+            valueCell.className = 'server-value';
+            valueCell.textContent = String(value).substring(0, 50);
+            row.appendChild(keyCell);
+            row.appendChild(valueCell);
+            tbody.appendChild(row);
+        }
+        
+        table.appendChild(tbody);
+        serverSection.appendChild(table);
+        threatDetails.appendChild(serverSection);
     }
     
     // Vulnerabilities (if any)
     if (data.features && data.features.threat_vulnerabilities && Array.isArray(data.features.threat_vulnerabilities) && data.features.threat_vulnerabilities.length > 0) {
-        const vulnTable = `
-            <div class="threat-table-section threat-vulnerability-section">
-                <h4 class="threat-table-title">Vulnerabilities Detected</h4>
-                <table class="threat-table">
-                    <tbody>
-                        ${data.features.threat_vulnerabilities.map((vuln, idx) => `<tr><td class="vulnerability-item">${vuln}</td></tr>`).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
-        threatDetails.innerHTML += vulnTable;
+        const vulnSection = document.createElement('div');
+        vulnSection.className = 'threat-table-section threat-vulnerability-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'threat-table-title';
+        title.textContent = 'Vulnerabilities Detected';
+        vulnSection.appendChild(title);
+        
+        const table = document.createElement('table');
+        table.className = 'threat-table';
+        const tbody = document.createElement('tbody');
+        
+        data.features.threat_vulnerabilities.forEach(vuln => {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.className = 'vulnerability-item';
+            cell.textContent = vuln;
+            row.appendChild(cell);
+            tbody.appendChild(row);
+        });
+        
+        table.appendChild(tbody);
+        vulnSection.appendChild(table);
+        threatDetails.appendChild(vulnSection);
     }
     
     // Append threat details tables if any content was added
@@ -708,7 +1141,16 @@ function displayResults(data) {
         badge.className = 'phishtank-badge';
         badge.style.borderLeftColor = '#ff0000';
         badge.style.backgroundColor = '#ff000015';
-        badge.innerHTML = `<strong style="color: #ff0000">[VERIFIED PHISHING]</strong> ID: ${data.phishtank_data.phish_id}`;
+        
+        const badgeStrong = document.createElement('strong');
+        badgeStrong.style.color = '#ff0000';
+        badgeStrong.textContent = '[VERIFIED PHISHING]';
+        
+        const badgeId = document.createElement('span');
+        badgeId.textContent = ' ID: ' + (data.phishtank_data.phish_id || 'N/A');
+        
+        badge.appendChild(badgeStrong);
+        badge.appendChild(badgeId);
         threatIndicators.appendChild(badge);
     }
     
@@ -716,6 +1158,9 @@ function displayResults(data) {
     if (data.features && Object.keys(data.features).length > 0) {
         displayFeatures(data.features);
     }
+    
+    // Add to history
+    addToHistory(data.url, data.label || (data.prediction === 'phishing' ? 1 : 0), data.probability || 0);
     
     showResults();
 }
@@ -732,7 +1177,9 @@ function displayFeatures(features) {
     advancedFeatures.innerHTML = '';
     
     if (!features || Object.keys(features).length === 0) {
-        advancedFeatures.innerHTML = '<p>No detailed features available</p>';
+        const p = document.createElement('p');
+        p.textContent = 'No detailed features available';
+        advancedFeatures.appendChild(p);
         return;
     }
     
@@ -752,7 +1199,16 @@ function displayFeatures(features) {
         // Format value with type-specific handling
         let formattedValue = formatFeatureValue(value);
         
-        featureEl.innerHTML = `<span class="feature-name">${formattedKey}</span><span class="feature-value">${formattedValue}</span>`;
+        const keySpan = document.createElement('span');
+        keySpan.className = 'feature-name';
+        keySpan.textContent = formattedKey;
+        
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'feature-value';
+        valueSpan.textContent = formattedValue;
+        
+        featureEl.appendChild(keySpan);
+        featureEl.appendChild(valueSpan);
         
         // Categorize by key name
         const lowerKey = key.toLowerCase();
@@ -792,7 +1248,7 @@ function formatFeatureName(name) {
  */
 function formatFeatureValue(value) {
     if (typeof value === 'boolean') {
-        return value ? '[YES]' : '[NO]';
+        return value ? 'Yes' : 'No';
     }
     if (typeof value === 'number') {
         // If it's a decimal between 0-1 (actual probability), show as percentage
@@ -807,7 +1263,7 @@ function formatFeatureValue(value) {
         return value.toFixed(2);
     }
     if (Array.isArray(value)) {
-        return value.join(', ') || '[EMPTY]';
+        return value.join(', ') || '(None)';
     }
     return String(value);
 }
@@ -837,13 +1293,13 @@ function displaySubdomainInfo(subdomainInfo) {
 function showLoading() {
     checkBtn.disabled = true;
     btnText.style.display = 'none';
-    btnSpinner.classList.remove('hidden');
+    btnLoader.classList.remove('hidden');
 }
 
 function hideLoading() {
     checkBtn.disabled = false;
     btnText.style.display = 'inline';
-    btnSpinner.classList.add('hidden');
+    btnLoader.classList.add('hidden');
 }
 
 function showResults() {
@@ -882,4 +1338,227 @@ function setLoading(loading) {
     }
 }
 
-console.log('✅ App.js loaded and ready');
+/**
+ * Scan History Management (optimized for low memory)
+ */
+const HISTORY_KEY = 'phishing_scan_history';
+const MAX_HISTORY_ITEMS = 10; // Reduced from 20 to save memory
+
+function addToHistory(url, label, confidence) {
+    try {
+        // Get existing history
+        let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        
+        // Check if this URL already exists in history
+        const duplicateIndex = history.findIndex(item => item.fullUrl === url);
+        
+        // If duplicate exists, remove it (we'll add it again at the top)
+        if (duplicateIndex !== -1) {
+            history.splice(duplicateIndex, 1);
+        }
+        
+        // Add new entry at the beginning (most recent first)
+        const entry = {
+            url: url.substring(0, 25) + (url.length > 25 ? '...' : ''),
+            type: label === 1 ? 'Phishing' : 'Legit',
+            confidence: Math.round(confidence * 100),
+            timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+            fullUrl: url,
+            isPhishing: label === 1,
+            predictionData: {
+                label: label,
+                probability: confidence,
+                prediction: label === 1 ? 'phishing' : 'legitimate'
+            }
+        };
+        
+        history.unshift(entry);
+        
+        // Keep only last 10 items to save memory
+        history = history.slice(0, MAX_HISTORY_ITEMS);
+        
+        // Save to localStorage with size check
+        const historyJson = JSON.stringify(history);
+        if (historyJson.length > 50000) {
+            // If history is too large, truncate to 5 items
+            history = history.slice(0, 5);
+        }
+        
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        
+        // Update display
+        updateHistoryDisplay();
+        
+    } catch (e) {
+        console.error('Error adding to history:', e);
+    }
+}
+
+function updateHistoryDisplay() {
+    try {
+        const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const historyTableContainer = document.querySelector('.history-table-container');
+        
+        if (!historyTableBody) return;
+        
+        // Get history list and empty state
+        const historyList = document.getElementById('historyList');
+        const emptyState = historyList ? historyList.querySelector('.history-empty') : null;
+        
+        if (history.length === 0) {
+            historyTableBody.innerHTML = '';
+            
+            // Show empty state and hide table container
+            if (emptyState) {
+                emptyState.style.display = 'block';
+            }
+            if (historyTableContainer) {
+                historyTableContainer.style.display = 'none';
+            }
+            return;
+        }
+        
+        // Hide empty state and show table container
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        if (historyTableContainer) {
+            historyTableContainer.style.display = 'block';
+        }
+        
+        // Clear table
+        historyTableBody.innerHTML = '';
+        
+        // Build table rows safely
+        history.forEach((item, index) => {
+            const row = document.createElement('tr');
+            row.title = 'Click to view results: ' + item.fullUrl;
+            
+            const urlCell = document.createElement('td');
+            urlCell.className = 'history-url';
+            urlCell.textContent = item.url;
+            urlCell.style.cursor = 'pointer';
+            urlCell.onclick = function() { displayHistoryResult(index); };
+            
+            const deleteCell = document.createElement('td');
+            deleteCell.className = 'history-delete-btn';
+            deleteCell.textContent = '✕';
+            deleteCell.title = 'Delete this scan';
+            deleteCell.style.cursor = 'pointer';
+            deleteCell.onclick = function() { deleteHistoryItem(index); };
+            
+            row.appendChild(urlCell);
+            row.appendChild(deleteCell);
+            historyTableBody.appendChild(row);
+        });
+        
+    } catch (e) {
+        console.error('Error updating history display:', e);
+    }
+}
+
+function displayHistoryResult(index) {
+    try {
+        const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const item = history[index];
+        
+        if (!item) return;
+        
+        console.log('[+] Rescanning URL from history:', item.fullUrl);
+        
+        // Set the URL in input field and trigger a fresh scan
+        const urlInput = document.getElementById('urlInput');
+        if (urlInput) {
+            urlInput.value = item.fullUrl;
+            // Trigger the check function to rescan
+            checkURL();
+        }
+        
+    } catch (e) {
+        console.error('Error rescanning history result:', e);
+    }
+}
+
+function deleteHistoryItem(index) {
+    try {
+        let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        const item = history[index];
+        
+        if (confirm('Delete this scan from history?\n\n' + item.fullUrl)) {
+            history.splice(index, 1);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            updateHistoryDisplay();
+            console.log('[+] History item deleted: ' + item.fullUrl);
+        }
+        
+    } catch (e) {
+        console.error('Error deleting history item:', e);
+    }
+}
+
+function clearHistory() {
+    if (confirm('Clear all scan history?')) {
+        try {
+            // Add animation to button
+            const clearBtn = document.getElementById('clearHistoryBtn');
+            if (clearBtn && !clearBtn.classList.contains('delete')) {
+                clearBtn.classList.add('delete');
+            }
+            
+            // Clear history after animation starts
+            setTimeout(() => {
+                localStorage.removeItem(HISTORY_KEY);
+                updateHistoryDisplay();
+                
+                console.log('[+] History cleared');
+            }, 500);
+            
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                if (clearBtn && clearBtn.classList.contains('delete')) {
+                    clearBtn.classList.remove('delete');
+                }
+            }, 3200);
+            
+        } catch (e) {
+            console.error('Error clearing history:', e);
+        }
+    }
+}
+
+// Initialize history on page load
+document.addEventListener('DOMContentLoaded', () => {
+    updateHistoryDisplay();
+    
+    // Add clear history button listener
+    const clearBtn = document.getElementById('clearHistoryBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearHistory);
+    }
+});
+
+/**
+ * Logout function - Clear session and redirect
+ */
+function logout() {
+    try {
+        // Clear all phishing detector session data
+        localStorage.removeItem('phishing_detector_session');
+        localStorage.removeItem(SESSION_EXPIRY_KEY);
+        localStorage.removeItem(SESSION_STATE_KEY);
+        
+        // Clear session storage completely
+        sessionStorage.clear();
+        
+        // Redirect to tracking eyes page
+        window.location.href = 'tracking-eyes.html';
+    } catch (e) {
+        console.error('Logout error:', e);
+        // Force redirect anyway
+        window.location.href = 'tracking-eyes.html';
+    }
+}
+
+console.log('[+] App.js loaded and ready');

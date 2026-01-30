@@ -41,9 +41,9 @@ class AdvancedSecurityConfig:
     if EXTERNAL_CREDENTIALS_LOADED:
         _external_config = CredentialsLoader.get_advanced_security_config()
         
-        # IP Whitelisting - ENABLED for development
-        WHITELIST_ENABLED = True  # Changed to True to allow admin access
-        WHITELISTED_IPS = ['127.0.0.1', '::1', 'localhost']
+        # IP Whitelisting - DISABLED for development
+        WHITELIST_ENABLED = False  # Disabled to allow all IPs
+        WHITELISTED_IPS = ['127.0.0.1', '::1', 'localhost', 'localhost:5000']
         
         # DDoS Protection Thresholds
         MAX_REQUESTS_PER_SECOND = _external_config.get('max_requests_per_second', 10)
@@ -57,8 +57,8 @@ class AdvancedSecurityConfig:
         AUTO_BLOCK_THRESHOLD = _external_config.get('auto_block_threshold', 3)
         TEMPORARY_BLOCK_DURATION = _external_config.get('temporary_block_duration', 3600)
     else:
-        # Fallback defaults - ENABLED for development
-        WHITELIST_ENABLED = True  # Changed to True to allow admin access
+        # Fallback defaults - DISABLED for development
+        WHITELIST_ENABLED = False  # Disabled to allow all IPs
         WHITELISTED_IPS = ['127.0.0.1', '::1', 'localhost']
         MAX_REQUESTS_PER_SECOND = 10
         MAX_REQUESTS_PER_MINUTE = 100
@@ -68,7 +68,7 @@ class AdvancedSecurityConfig:
         TEMPORARY_BLOCK_DURATION = 3600
     
     # Pattern Detection (not in external config)
-    SUSPICIOUS_PATTERN_THRESHOLD = 5  # Same endpoint hit repeatedly
+    SUSPICIOUS_PATTERN_THRESHOLD = 100  # Same endpoint hit repeatedly (increased for development)
     PATTERN_TIME_WINDOW = 10  # seconds
     
     # Request Size Limits
