@@ -365,7 +365,7 @@ function checkSession() {
             const currentTime = new Date().getTime();
             
             if (currentTime < sessionData.expiry) {
-                window.location.href = 'phishing-detector.html';
+                window.location.href = 'secure-auth-portal.html';
                 return true;
             } else {
                 localStorage.removeItem(SESSION_KEY);
