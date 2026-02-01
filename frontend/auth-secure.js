@@ -436,12 +436,10 @@ async function authenticateWithBackend(username, password, mfaCode = null) {
         const response = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
             mode: 'cors',
+            credentials: 'omit',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Screen-Info': getScreenInfo(),
-                'X-Timezone': getTimezone(),
-                'X-Device-Fingerprint': generateDeviceFingerprint()
+                'Accept': 'application/json'
             },
             body: JSON.stringify({ 
                 username, 

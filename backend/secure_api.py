@@ -137,14 +137,11 @@ ALLOWED_ORIGINS = [
 @app.after_request
 def after_request_cors(response):
     origin = request.headers.get('Origin', '')
-    if origin in ALLOWED_ORIGINS or origin.startswith('http://127.0.0.1:') or origin.startswith('http://localhost:'):
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    else:
-        response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-CSRF-Token'
-    response.headers['Access-Control-Expose-Headers'] = 'X-Request-ID'
+    response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
+    response.headers['Access-Control-Max-Age'] = '3600'
     return response
 
 
