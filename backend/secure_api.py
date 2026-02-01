@@ -179,53 +179,27 @@ logger.info("IP Session Security initialized")
 
 initialize_model()
 
-FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+FRONTEND_URL = 'https://phishingdetector.systems'
 
 
 @app.route('/')
 def serve_index():
-    return send_from_directory(FRONTEND_DIR, 'index.html')
+    """API root - redirect to frontend"""
+    return jsonify({
+        'status': 'online',
+        'service': 'Phishing Detection API',
+        'frontend': FRONTEND_URL,
+        'message': 'This is the API server. Visit the frontend for the web interface.',
+        'endpoints': ['/login', '/predict', '/health', '/scan-subdomains']
+    })
 
 @app.route('/<path:filename>')
 def serve_static(filename):
-    """Serve static files (CSS, JS, HTML, images)"""
-    # Prevent path traversal attacks with robust validation
-    import os.path
-    from werkzeug.utils import secure_filename as werkzeug_secure
-    
-    # Normalize path and check for traversal attempts (including encoded)
-    decoded_filename = filename.replace('%2e', '.').replace('%2f', '/').replace('%5c', '\\')
-    if '..' in decoded_filename or decoded_filename.startswith('/') or decoded_filename.startswith('\\'):
-        logger.warning(f"Attempted path traversal: {filename}")
-        return jsonify({'error': 'Invalid path'}), 403
-    
-    # Get absolute paths and verify containment
-    frontend_abs = os.path.abspath(FRONTEND_DIR)
-    requested_path = os.path.abspath(os.path.join(FRONTEND_DIR, filename))
-    
-    # Ensure requested file is within FRONTEND_DIR
-    if not requested_path.startswith(frontend_abs):
-        logger.warning(f"Path traversal attempt blocked: {filename} -> {requested_path}")
-        return jsonify({'error': 'Invalid path'}), 403
-    
-    # List of allowed file extensions
-    allowed_extensions = {'.html', '.css', '.js', '.json', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf'}
-    
-    # Check file extension
-    file_ext = os.path.splitext(filename)[1].lower()
-    if file_ext not in allowed_extensions:
-        return jsonify({'error': 'File type not allowed'}), 403
-    
-    try:
-        return send_from_directory(FRONTEND_DIR, filename)
-    except FileNotFoundError:
-        # If file not found, serve index.html for SPA routing
-        if filename.endswith('.html'):
-            return send_from_directory(FRONTEND_DIR, 'index.html')
-        return jsonify({'error': 'File not found'}), 404
-    except Exception as e:
-        logger.error(f"Error serving file {filename}: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+    """Redirect static file requests to frontend"""
+    if filename.endswith(('.html', '.css', '.js', '.png', '.jpg', '.ico')):
+        from flask import redirect
+        return redirect(f'{FRONTEND_URL}/{filename}', code=302)
+    return jsonify({'error': 'Not found', 'frontend': FRONTEND_URL}), 404
 
 @app.before_request
 def security_checks():
@@ -388,12 +362,6 @@ def internal_error(error):
 # ========================
 # PUBLIC ENDPOINTS
 # ========================
-
-@app.route('/', methods=['GET'])
-@limiter.limit("100 per minute")
-def root():
-    """Root endpoint - serves index.html"""
-    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 
 @app.route('/health', methods=['GET'])
