@@ -33,3 +33,4 @@ numpy==2.0.2
 python-dateutil==2.8.2
 python-dotenv==1.0.0
 bleach==6.1.0
+validators==0.22.0
