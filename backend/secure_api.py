@@ -128,6 +128,8 @@ ALLOWED_ORIGINS = [
     'http://localhost:5000',
     'http://127.0.0.1:5000',
     'https://phishing-detection-system-1.onrender.com',
+    'https://phishingdetector.systems',
+    'http://phishingdetector.systems',
     'null'
 ]
 
