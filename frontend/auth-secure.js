@@ -365,7 +365,7 @@ function checkSession() {
             const currentTime = new Date().getTime();
             
             if (currentTime < sessionData.expiry) {
-                window.location.href = 'index.html';
+                window.location.href = 'phishing-detector.html';
                 return true;
             } else {
                 localStorage.removeItem(SESSION_KEY);
@@ -571,11 +571,11 @@ async function handleLogin(e, mfaCode = null) {
             }
             
             console.log('✅ Session stored. Privilege level:', authResult.privileged ? 'ADMIN' : 'USER');
-            console.log('🚀 Redirecting to index.html in 500ms...');
+            console.log('🚀 Redirecting to phishing-detector.html in 500ms...');
             
             setTimeout(() => {
                 console.log('🚀 Executing redirect now...');
-                window.location.href = 'index.html';
+                window.location.href = 'phishing-detector.html';
             }, 500);
         } else {
             console.log('❌ Authentication failed:', authResult.message);
