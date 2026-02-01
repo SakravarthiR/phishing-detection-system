@@ -22,5 +22,8 @@ certifi==2024.2.2
 # Memory Management
 psutil==5.9.6
 
+# Machine Learning
+scikit-learn==1.3.2
+
 # Utilities
 python-dateutil==2.8.2
