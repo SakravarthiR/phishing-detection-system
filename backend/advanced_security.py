@@ -1,12 +1,4 @@
-"""
-DDoS protection and rate limiting.
-
-Honestly this was a pain to get right. Had to fix the whitelist logic like 3 times
-because I kept blocking localhost during testing. Now it actually checks if an IP
-is whitelisted FIRST before doing any blocking. Lesson learned.
-
-Also tracks request patterns to catch suspicious behavior. Works pretty well now.
-"""
+"""DDoS protection and rate limiting"""
 
 import time
 import hashlib
@@ -15,50 +7,35 @@ from collections import defaultdict
 from threading import Lock
 from security_utils import logger
 
-# Import external credentials loader
 try:
     from credentials_loader import CredentialsLoader
     EXTERNAL_CREDENTIALS_LOADED = True
 except ImportError:
     EXTERNAL_CREDENTIALS_LOADED = False
 
-# Thread-safe locks
 request_lock = Lock()
 connection_lock = Lock()
 
-# Advanced tracking dictionaries
-request_tracker = defaultdict(list)  # Track all requests per IP
-connection_tracker = defaultdict(int)  # Track concurrent connections per IP
-request_patterns = defaultdict(lambda: defaultdict(int))  # Track request patterns
-suspicious_ips = set()  # IPs flagged as suspicious
-permanent_blocks = set()  # Permanently blocked IPs
+request_tracker = defaultdict(list)
+connection_tracker = defaultdict(int)
+request_patterns = defaultdict(lambda: defaultdict(int))
+suspicious_ips = set()
+permanent_blocks = set()
 
-# Configuration
+
 class AdvancedSecurityConfig:
-    """Advanced security configuration for personal use - loads from external credentials"""
-    
-    # Load from external credentials if available
     if EXTERNAL_CREDENTIALS_LOADED:
         _external_config = CredentialsLoader.get_advanced_security_config()
-        
-        # IP Whitelisting - DISABLED for development
-        WHITELIST_ENABLED = False  # Disabled to allow all IPs
+        WHITELIST_ENABLED = False
         WHITELISTED_IPS = ['127.0.0.1', '::1', 'localhost', 'localhost:5000']
-        
-        # DDoS Protection Thresholds
         MAX_REQUESTS_PER_SECOND = _external_config.get('max_requests_per_second', 10)
         MAX_REQUESTS_PER_MINUTE = _external_config.get('max_requests_per_minute', 100)
         MAX_REQUESTS_PER_HOUR = _external_config.get('max_requests_per_hour', 1000)
-        
-        # Connection Limits
         MAX_CONCURRENT_CONNECTIONS = _external_config.get('max_concurrent_connections', 5)
-        
-        # Automatic Blocking
         AUTO_BLOCK_THRESHOLD = _external_config.get('auto_block_threshold', 3)
         TEMPORARY_BLOCK_DURATION = _external_config.get('temporary_block_duration', 3600)
     else:
-        # Fallback defaults - DISABLED for development
-        WHITELIST_ENABLED = False  # Disabled to allow all IPs
+        WHITELIST_ENABLED = False
         WHITELISTED_IPS = ['127.0.0.1', '::1', 'localhost']
         MAX_REQUESTS_PER_SECOND = 10
         MAX_REQUESTS_PER_MINUTE = 100
@@ -67,89 +44,50 @@ class AdvancedSecurityConfig:
         AUTO_BLOCK_THRESHOLD = 3
         TEMPORARY_BLOCK_DURATION = 3600
     
-    # Pattern Detection (not in external config)
-    SUSPICIOUS_PATTERN_THRESHOLD = 100  # Same endpoint hit repeatedly (increased for development)
-    PATTERN_TIME_WINDOW = 10  # seconds
-    
-    # Request Size Limits
-    MAX_REQUEST_SIZE = 1048576  # 1MB
+    SUSPICIOUS_PATTERN_THRESHOLD = 100
+    PATTERN_TIME_WINDOW = 10
+    MAX_REQUEST_SIZE = 1048576
     MAX_URL_LENGTH = 2048
     MAX_JSON_DEPTH = 5
+    REQUEST_TIMEOUT = 10
+    SLOW_REQUEST_THRESHOLD = 5
+    RATE_LIMIT_WINDOWS = {'second': 1, 'minute': 60, 'hour': 3600}
     
-    # Slowloris Protection
-    REQUEST_TIMEOUT = 10  # seconds
-    SLOW_REQUEST_THRESHOLD = 5  # seconds
-    
-    # Rate Limiting Windows
-    RATE_LIMIT_WINDOWS = {
-        'second': 1,
-        'minute': 60,
-        'hour': 3600
-    }
-    
-    # Geographic Restrictions (Optional)
-    ALLOWED_COUNTRIES = []  # Empty = allow all, or ['US', 'CA', 'UK']
-    
-    # Advanced Detection
+    ALLOWED_COUNTRIES = []
     DETECT_PORT_SCANNING = True
     DETECT_SQL_INJECTION = True
     DETECT_XSS_ATTACKS = True
     DETECT_DIRECTORY_TRAVERSAL = True
-    
-    # Response Delays (Slow down attackers)
-    SUSPICIOUS_REQUEST_DELAY = 2  # seconds
-    BLOCKED_REQUEST_DELAY = 5  # seconds
-    
-    # Fingerprinting (Track unique attackers)
+    SUSPICIOUS_REQUEST_DELAY = 2
+    BLOCKED_REQUEST_DELAY = 5
     ENABLE_FINGERPRINTING = True
-    FINGERPRINT_HEADERS = [
-        'User-Agent',
-        'Accept',
-        'Accept-Encoding',
-        'Accept-Language'
-    ]
+    FINGERPRINT_HEADERS = ['User-Agent', 'Accept', 'Accept-Encoding', 'Accept-Language']
 
 
 class DDoSProtection:
-    """Advanced DDoS/DoS protection system"""
-    
     @staticmethod
     def get_client_fingerprint(request):
-        """
-        Generate unique fingerprint for client
-        Helps identify attackers using multiple IPs
-        """
         if not AdvancedSecurityConfig.ENABLE_FINGERPRINTING:
             return None
-        
         fingerprint_data = []
         for header in AdvancedSecurityConfig.FINGERPRINT_HEADERS:
-            value = request.headers.get(header, '')
-            fingerprint_data.append(value)
-        
+            fingerprint_data.append(request.headers.get(header, ''))
         fingerprint_string = '|'.join(fingerprint_data)
-        fingerprint = hashlib.sha256(fingerprint_string.encode()).hexdigest()[:16]
-        return fingerprint
+        return hashlib.sha256(fingerprint_string.encode()).hexdigest()[:16]
     
     @staticmethod
     def is_whitelisted(ip_address):
-        """Check if IP is whitelisted"""
         if not AdvancedSecurityConfig.WHITELIST_ENABLED:
-            return False  # Whitelist disabled, treat all as not whitelisted (normal security applies)
-        
+            return False
         return ip_address in AdvancedSecurityConfig.WHITELISTED_IPS
     
     @staticmethod
     def is_blocked(ip_address):
-        """Check if IP is blocked (temporary or permanent)"""
-        # Check permanent blocks
         if ip_address in permanent_blocks:
             logger.critical(f"Permanently blocked IP attempted access: {ip_address}")
             return True, 'permanent', None
         
-        # Check suspicious IPs
         if ip_address in suspicious_ips:
-            # Check if temporary block has expired
             with request_lock:
                 if ip_address in request_tracker:
                     last_block = request_tracker[ip_address]
@@ -161,7 +99,6 @@ class DDoSProtection:
                                 logger.warning(f"Temporarily blocked IP attempted access: {ip_address}")
                                 return True, 'temporary', remaining
                             else:
-                                # Block expired, remove from suspicious
                                 suspicious_ips.discard(ip_address)
         
         return False, None, None

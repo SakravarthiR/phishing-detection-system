@@ -1,19 +1,4 @@
-"""
-Amazon-Level Security System
-============================
-Enterprise-grade authentication security optimized for low-memory environments.
-
-Features:
-- Multi-Factor Authentication (TOTP)
-- Device Fingerprinting & Trust System
-- Anomaly Detection (location, time, behavior)
-- Progressive Account Lockout with Exponential Backoff
-- Login History & Security Alerts
-- Brute Force Protection
-- Session Binding (IP + Device)
-
-Optimized for Render Free Tier (512MB RAM)
-"""
+"""Security module - handles auth, MFA, device trust, and anomaly detection"""
 
 import hashlib
 import hmac
@@ -31,17 +16,13 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# Thread-safe locks for concurrent access
 _security_lock = Lock()
 _device_lock = Lock()
 _history_lock = Lock()
 
-# ============================================================================
-# MEMORY-EFFICIENT STORAGE (Auto-cleanup for 512MB limit)
-# ============================================================================
 
 class MemoryEfficientStore:
-    """LRU-based storage with automatic cleanup for low memory environments"""
+    """LRU store with TTL and auto-cleanup"""
     
     def __init__(self, max_size=1000, ttl_seconds=3600):
         self.max_size = max_size
@@ -59,7 +40,6 @@ class MemoryEfficientStore:
     def get(self, key, default=None):
         with self.lock:
             if key in self.store:
-                # Check TTL
                 if time.time() - self.access_times.get(key, 0) > self.ttl:
                     del self.store[key]
                     del self.access_times[key]
@@ -75,90 +55,60 @@ class MemoryEfficientStore:
     
     def _cleanup_if_needed(self):
         if len(self.store) >= self.max_size:
-            # Remove oldest 20% of entries
             sorted_keys = sorted(self.access_times.keys(), key=lambda k: self.access_times[k])
             for key in sorted_keys[:len(sorted_keys) // 5]:
                 self.store.pop(key, None)
                 self.access_times.pop(key, None)
 
 
-# Storage instances (OPTIMIZED FOR 512MB RENDER FREE TIER)
-# Reduced sizes by 50% to fit in 256MB per worker
-_failed_attempts = MemoryEfficientStore(max_size=250, ttl_seconds=1800)  # 30 min
-_lockouts = MemoryEfficientStore(max_size=100, ttl_seconds=86400)  # 24 hours
-_device_trust = MemoryEfficientStore(max_size=250, ttl_seconds=2592000)  # 30 days
-_login_history = MemoryEfficientStore(max_size=500, ttl_seconds=604800)  # 7 days
-_mfa_secrets = MemoryEfficientStore(max_size=50, ttl_seconds=86400)  # 24 hours
-_security_challenges = MemoryEfficientStore(max_size=100, ttl_seconds=300)  # 5 min
-_anomaly_scores = MemoryEfficientStore(max_size=250, ttl_seconds=3600)  # 1 hour
+# Storage instances - sized for 512MB RAM
+_failed_attempts = MemoryEfficientStore(max_size=250, ttl_seconds=1800)
+_lockouts = MemoryEfficientStore(max_size=100, ttl_seconds=86400)
+_device_trust = MemoryEfficientStore(max_size=250, ttl_seconds=2592000)
+_login_history = MemoryEfficientStore(max_size=500, ttl_seconds=604800)
+_mfa_secrets = MemoryEfficientStore(max_size=50, ttl_seconds=86400)
+_security_challenges = MemoryEfficientStore(max_size=100, ttl_seconds=300)
+_anomaly_scores = MemoryEfficientStore(max_size=250, ttl_seconds=3600)
 
 
-# ============================================================================
-# SECURITY CONFIGURATION
-# ============================================================================
-
-class AmazonSecurityConfig:
-    """Amazon-level security configuration"""
-    
-    # Account Lockout (Progressive)
+class AuthSecurityConfig:
     MAX_FAILED_ATTEMPTS = 5
-    LOCKOUT_DURATIONS = [60, 300, 900, 3600, 86400]  # 1min, 5min, 15min, 1hr, 24hr
-    
-    # Brute Force Protection
-    RATE_LIMIT_WINDOW = 60  # seconds
+    LOCKOUT_DURATIONS = [60, 300, 900, 3600, 86400]
+    RATE_LIMIT_WINDOW = 60
     MAX_ATTEMPTS_PER_WINDOW = 10
-    
-    # Device Trust
     DEVICE_TRUST_DURATION_DAYS = 30
     MAX_TRUSTED_DEVICES = 10
     REQUIRE_MFA_NEW_DEVICE = True
-    
-    # Session Security
     SESSION_TIMEOUT_MINUTES = 60
     ABSOLUTE_TIMEOUT_HOURS = 24
     BIND_SESSION_TO_IP = True
     BIND_SESSION_TO_DEVICE = True
-    
-    # Anomaly Detection Thresholds
-    ANOMALY_SCORE_THRESHOLD = 70  # 0-100 scale
+    ANOMALY_SCORE_THRESHOLD = 70
     NEW_LOCATION_SCORE = 30
     NEW_DEVICE_SCORE = 25
     UNUSUAL_TIME_SCORE = 20
     RAPID_ATTEMPTS_SCORE = 35
-    
-    # Password Requirements
     MIN_PASSWORD_LENGTH = 12
     REQUIRE_UPPERCASE = True
     REQUIRE_LOWERCASE = True
     REQUIRE_NUMBERS = True
     REQUIRE_SPECIAL = True
-    
-    # MFA Settings
     MFA_CODE_LENGTH = 6
     MFA_CODE_VALIDITY_SECONDS = 30
     MFA_BACKUP_CODES_COUNT = 10
 
 
-# ============================================================================
-# DEVICE FINGERPRINTING
-# ============================================================================
-
 class DeviceFingerprint:
-    """Generate and verify device fingerprints for trust system"""
-    
     @staticmethod
     def generate(request):
-        """Generate device fingerprint from request headers"""
         components = [
             request.headers.get('User-Agent', ''),
             request.headers.get('Accept-Language', ''),
             request.headers.get('Accept-Encoding', ''),
             request.headers.get('Accept', ''),
-            # Screen info from custom header (set by frontend)
             request.headers.get('X-Screen-Info', ''),
             request.headers.get('X-Timezone', ''),
         ]
-        
         fingerprint_string = '|'.join(components)
         fingerprint = hashlib.sha256(fingerprint_string.encode()).hexdigest()[:32]
         
@@ -166,7 +116,7 @@ class DeviceFingerprint:
     
     @staticmethod
     def get_device_info(request):
-        """Extract device information for display"""
+        
         user_agent = request.headers.get('User-Agent', 'Unknown')
         
         # Parse user agent for device type
@@ -213,17 +163,17 @@ class DeviceFingerprint:
 # ============================================================================
 
 class TOTPManager:
-    """TOTP-based Multi-Factor Authentication (RFC 6238)"""
+    
     
     @staticmethod
     def generate_secret():
-        """Generate a new TOTP secret"""
+        
         secret = base64.b32encode(os.urandom(20)).decode('utf-8')
         return secret
     
     @staticmethod
     def get_totp_code(secret, time_step=30):
-        """Generate current TOTP code"""
+        
         try:
             # Decode secret
             key = base64.b32decode(secret.upper())
@@ -241,16 +191,16 @@ class TOTPManager:
             offset = hmac_result[-1] & 0x0F
             code_int = struct.unpack('>I', hmac_result[offset:offset + 4])[0]
             code_int &= 0x7FFFFFFF
-            code = code_int % (10 ** AmazonSecurityConfig.MFA_CODE_LENGTH)
+            code = code_int % (10 ** AuthSecurityConfig.MFA_CODE_LENGTH)
             
-            return str(code).zfill(AmazonSecurityConfig.MFA_CODE_LENGTH)
+            return str(code).zfill(AuthSecurityConfig.MFA_CODE_LENGTH)
         except Exception as e:
             logger.error(f"TOTP generation error: {e}")
             return None
     
     @staticmethod
     def verify_totp(secret, code, window=1):
-        """Verify TOTP code with time window tolerance"""
+        
         if not secret or not code:
             return False
         
@@ -267,7 +217,7 @@ class TOTPManager:
     
     @staticmethod
     def _generate_code_for_counter(secret, counter):
-        """Generate TOTP code for specific counter value"""
+        
         try:
             key = base64.b32decode(secret.upper())
             counter_bytes = struct.pack('>Q', counter)
@@ -275,36 +225,33 @@ class TOTPManager:
             offset = hmac_result[-1] & 0x0F
             code_int = struct.unpack('>I', hmac_result[offset:offset + 4])[0]
             code_int &= 0x7FFFFFFF
-            code = code_int % (10 ** AmazonSecurityConfig.MFA_CODE_LENGTH)
-            return str(code).zfill(AmazonSecurityConfig.MFA_CODE_LENGTH)
+            code = code_int % (10 ** AuthSecurityConfig.MFA_CODE_LENGTH)
+            return str(code).zfill(AuthSecurityConfig.MFA_CODE_LENGTH)
         except:
             return None
     
     @staticmethod
     def generate_backup_codes():
-        """Generate one-time backup codes"""
+        
         codes = []
-        for _ in range(AmazonSecurityConfig.MFA_BACKUP_CODES_COUNT):
+        for _ in range(AuthSecurityConfig.MFA_BACKUP_CODES_COUNT):
             code = ''.join([str(os.urandom(1)[0] % 10) for _ in range(8)])
             codes.append(f"{code[:4]}-{code[4:]}")
         return codes
     
     @staticmethod
     def get_provisioning_uri(secret, username, issuer="PhishingDetector"):
-        """Generate QR code URI for authenticator apps"""
+        
         return f"otpauth://totp/{issuer}:{username}?secret={secret}&issuer={issuer}"
 
 
-# ============================================================================
-# PROGRESSIVE ACCOUNT LOCKOUT
-# ============================================================================
 
 class AccountLockout:
-    """Progressive account lockout with exponential backoff"""
+    
     
     @staticmethod
     def record_failed_attempt(identifier):
-        """Record a failed login attempt"""
+        
         with _security_lock:
             attempts = _failed_attempts.get(identifier, {'count': 0, 'timestamps': []})
             attempts['count'] += 1
@@ -317,20 +264,20 @@ class AccountLockout:
             _failed_attempts.set(identifier, attempts)
             
             # Check if lockout needed
-            if attempts['count'] >= AmazonSecurityConfig.MAX_FAILED_ATTEMPTS:
+            if attempts['count'] >= AuthSecurityConfig.MAX_FAILED_ATTEMPTS:
                 AccountLockout._apply_lockout(identifier, attempts['count'])
             
             return attempts['count']
     
     @staticmethod
     def _apply_lockout(identifier, attempt_count):
-        """Apply progressive lockout"""
+        
         # Calculate lockout duration based on attempt count
         lockout_index = min(
-            (attempt_count - AmazonSecurityConfig.MAX_FAILED_ATTEMPTS) // 2,
-            len(AmazonSecurityConfig.LOCKOUT_DURATIONS) - 1
+            (attempt_count - AuthSecurityConfig.MAX_FAILED_ATTEMPTS) // 2,
+            len(AuthSecurityConfig.LOCKOUT_DURATIONS) - 1
         )
-        duration = AmazonSecurityConfig.LOCKOUT_DURATIONS[lockout_index]
+        duration = AuthSecurityConfig.LOCKOUT_DURATIONS[lockout_index]
         
         lockout_until = time.time() + duration
         _lockouts.set(identifier, {
@@ -343,7 +290,7 @@ class AccountLockout:
     
     @staticmethod
     def is_locked(identifier):
-        """Check if account/IP is locked"""
+        
         lockout = _lockouts.get(identifier)
         if not lockout:
             return False, 0, 0
@@ -357,28 +304,25 @@ class AccountLockout:
     
     @staticmethod
     def clear_attempts(identifier):
-        """Clear failed attempts after successful login"""
+        
         _failed_attempts.delete(identifier)
         _lockouts.delete(identifier)
     
     @staticmethod
     def get_remaining_attempts(identifier):
-        """Get remaining login attempts before lockout"""
+        
         attempts = _failed_attempts.get(identifier, {'count': 0})
-        remaining = max(0, AmazonSecurityConfig.MAX_FAILED_ATTEMPTS - attempts['count'])
+        remaining = max(0, AuthSecurityConfig.MAX_FAILED_ATTEMPTS - attempts['count'])
         return remaining
 
 
-# ============================================================================
-# DEVICE TRUST SYSTEM
-# ============================================================================
 
 class DeviceTrustManager:
-    """Manage trusted devices for users"""
+    
     
     @staticmethod
     def trust_device(username, device_fingerprint, device_info, ip_address):
-        """Add device to trusted list"""
+        
         with _device_lock:
             key = f"trusted_{username}"
             devices = _device_trust.get(key, [])
@@ -392,7 +336,7 @@ class DeviceTrustManager:
                     return True
             
             # Add new trusted device
-            if len(devices) >= AmazonSecurityConfig.MAX_TRUSTED_DEVICES:
+            if len(devices) >= AuthSecurityConfig.MAX_TRUSTED_DEVICES:
                 # Remove oldest device
                 devices.sort(key=lambda d: d.get('last_used', ''))
                 devices.pop(0)
@@ -411,7 +355,7 @@ class DeviceTrustManager:
     
     @staticmethod
     def is_trusted_device(username, device_fingerprint):
-        """Check if device is trusted"""
+        
         key = f"trusted_{username}"
         devices = _device_trust.get(key, [])
         
@@ -423,13 +367,13 @@ class DeviceTrustManager:
     
     @staticmethod
     def get_trusted_devices(username):
-        """Get list of trusted devices for user"""
+        
         key = f"trusted_{username}"
         return _device_trust.get(key, [])
     
     @staticmethod
     def revoke_device(username, device_fingerprint):
-        """Remove device from trusted list"""
+        
         with _device_lock:
             key = f"trusted_{username}"
             devices = _device_trust.get(key, [])
@@ -439,45 +383,38 @@ class DeviceTrustManager:
     
     @staticmethod
     def revoke_all_devices(username):
-        """Remove all trusted devices"""
+        
         key = f"trusted_{username}"
         _device_trust.delete(key)
         return True
 
 
-# ============================================================================
-# ANOMALY DETECTION
-# ============================================================================
 
 class AnomalyDetector:
-    """Detect suspicious login patterns"""
+    
     
     @staticmethod
     def analyze_login(username, ip_address, device_fingerprint, request):
-        """Analyze login attempt for anomalies"""
         anomaly_score = 0
         anomalies = []
         
-        # Check 1: New device
         if not DeviceTrustManager.is_trusted_device(username, device_fingerprint):
-            anomaly_score += AmazonSecurityConfig.NEW_DEVICE_SCORE
+            anomaly_score += AuthSecurityConfig.NEW_DEVICE_SCORE
             anomalies.append({
                 'type': 'new_device',
-                'score': AmazonSecurityConfig.NEW_DEVICE_SCORE,
+                'score': AuthSecurityConfig.NEW_DEVICE_SCORE,
                 'message': 'Login from unrecognized device'
             })
         
-        # Check 2: Unusual time (outside 6 AM - 11 PM local)
         current_hour = datetime.now().hour
         if current_hour < 6 or current_hour > 23:
-            anomaly_score += AmazonSecurityConfig.UNUSUAL_TIME_SCORE
+            anomaly_score += AuthSecurityConfig.UNUSUAL_TIME_SCORE
             anomalies.append({
                 'type': 'unusual_time',
-                'score': AmazonSecurityConfig.UNUSUAL_TIME_SCORE,
+                'score': AuthSecurityConfig.UNUSUAL_TIME_SCORE,
                 'message': f'Login at unusual hour ({current_hour}:00)'
             })
         
-        # Check 3: Rapid attempts from different locations
         history_key = f"history_{username}"
         history = _login_history.get(history_key, [])
         recent_ips = set()
@@ -488,21 +425,20 @@ class AnomalyDetector:
                 recent_ips.add(entry.get('ip', ''))
         
         if len(recent_ips) > 2:
-            anomaly_score += AmazonSecurityConfig.RAPID_ATTEMPTS_SCORE
+            anomaly_score += AuthSecurityConfig.RAPID_ATTEMPTS_SCORE
             anomalies.append({
                 'type': 'multiple_locations',
-                'score': AmazonSecurityConfig.RAPID_ATTEMPTS_SCORE,
+                'score': AuthSecurityConfig.RAPID_ATTEMPTS_SCORE,
                 'message': f'Login attempts from {len(recent_ips)} different IPs in 5 minutes'
             })
         
-        # Check 4: New IP for this user - O(1) with set comprehension
         known_ips = {entry.get('ip', '') for entry in history}
         
         if ip_address not in known_ips and len(known_ips) > 0:
-            anomaly_score += AmazonSecurityConfig.NEW_LOCATION_SCORE
+            anomaly_score += AuthSecurityConfig.NEW_LOCATION_SCORE
             anomalies.append({
                 'type': 'new_location',
-                'score': AmazonSecurityConfig.NEW_LOCATION_SCORE,
+                'score': AuthSecurityConfig.NEW_LOCATION_SCORE,
                 'message': 'Login from new IP address'
             })
         
@@ -513,7 +449,7 @@ class AnomalyDetector:
             'timestamp': time.time()
         })
         
-        is_suspicious = anomaly_score >= AmazonSecurityConfig.ANOMALY_SCORE_THRESHOLD
+        is_suspicious = anomaly_score >= AuthSecurityConfig.ANOMALY_SCORE_THRESHOLD
         
         if is_suspicious:
             logger.warning(f"⚠️ Suspicious login: {username} from {ip_address}, score: {anomaly_score}")
@@ -526,16 +462,13 @@ class AnomalyDetector:
         }
 
 
-# ============================================================================
-# LOGIN HISTORY
-# ============================================================================
 
 class LoginHistory:
-    """Track and manage login history"""
+    
     
     @staticmethod
     def record_login(username, ip_address, device_info, success, mfa_used=False):
-        """Record a login attempt"""
+        
         with _history_lock:
             key = f"history_{username}"
             history = _login_history.get(key, [])
@@ -560,14 +493,14 @@ class LoginHistory:
     
     @staticmethod
     def get_recent_logins(username, limit=10):
-        """Get recent login history for user"""
+        
         key = f"history_{username}"
         history = _login_history.get(key, [])
         return history[-limit:]
     
     @staticmethod
     def get_failed_logins(username, hours=24):
-        """Get failed login attempts in time window"""
+        
         key = f"history_{username}"
         history = _login_history.get(key, [])
         cutoff = time.time() - (hours * 3600)
@@ -580,16 +513,13 @@ class LoginHistory:
         return failed
 
 
-# ============================================================================
-# SECURITY CHALLENGE SYSTEM
-# ============================================================================
 
 class SecurityChallenge:
-    """Issue and verify security challenges for suspicious logins"""
+    
     
     @staticmethod
     def create_challenge(username, challenge_type='mfa'):
-        """Create a security challenge"""
+        
         challenge_id = hashlib.sha256(
             f"{username}:{time.time()}:{os.urandom(16).hex()}".encode()
         ).hexdigest()[:32]
@@ -609,7 +539,7 @@ class SecurityChallenge:
     
     @staticmethod
     def verify_challenge(challenge_id, verification_data):
-        """Verify a security challenge"""
+        
         challenge = _security_challenges.get(challenge_id)
         
         if not challenge:
@@ -630,35 +560,32 @@ class SecurityChallenge:
     
     @staticmethod
     def get_challenge(challenge_id):
-        """Get challenge details"""
+        
         return _security_challenges.get(challenge_id)
 
 
-# ============================================================================
-# PASSWORD SECURITY
-# ============================================================================
 
 class PasswordSecurity:
-    """Enhanced password security validation"""
+    
     
     @staticmethod
     def validate_password_strength(password):
-        """Validate password meets Amazon-level requirements"""
+        
         errors = []
         
-        if len(password) < AmazonSecurityConfig.MIN_PASSWORD_LENGTH:
-            errors.append(f"Password must be at least {AmazonSecurityConfig.MIN_PASSWORD_LENGTH} characters")
+        if len(password) < AuthSecurityConfig.MIN_PASSWORD_LENGTH:
+            errors.append(f"Password must be at least {AuthSecurityConfig.MIN_PASSWORD_LENGTH} characters")
         
-        if AmazonSecurityConfig.REQUIRE_UPPERCASE and not re.search(r'[A-Z]', password):
+        if AuthSecurityConfig.REQUIRE_UPPERCASE and not re.search(r'[A-Z]', password):
             errors.append("Password must contain at least one uppercase letter")
         
-        if AmazonSecurityConfig.REQUIRE_LOWERCASE and not re.search(r'[a-z]', password):
+        if AuthSecurityConfig.REQUIRE_LOWERCASE and not re.search(r'[a-z]', password):
             errors.append("Password must contain at least one lowercase letter")
         
-        if AmazonSecurityConfig.REQUIRE_NUMBERS and not re.search(r'\d', password):
+        if AuthSecurityConfig.REQUIRE_NUMBERS and not re.search(r'\d', password):
             errors.append("Password must contain at least one number")
         
-        if AmazonSecurityConfig.REQUIRE_SPECIAL and not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        if AuthSecurityConfig.REQUIRE_SPECIAL and not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
             errors.append("Password must contain at least one special character")
         
         # Check for common patterns
@@ -672,7 +599,7 @@ class PasswordSecurity:
     
     @staticmethod
     def get_password_strength_score(password):
-        """Calculate password strength score (0-100)"""
+        
         score = 0
         
         # Length score (up to 30 points)
@@ -695,27 +622,9 @@ class PasswordSecurity:
         return min(100, score)
 
 
-# ============================================================================
-# MAIN SECURITY CHECK FUNCTION
-# ============================================================================
 
-def amazon_security_check(request, username, password=None):
-    """
-    Comprehensive Amazon-level security check for login attempts.
+def good_security_check(request, username, password=None):
     
-    Returns:
-        dict: {
-            'allowed': bool,
-            'requires_mfa': bool,
-            'challenge_id': str or None,
-            'message': str,
-            'anomaly_score': int,
-            'remaining_attempts': int,
-            'lockout_seconds': int,
-            'device_trusted': bool,
-            'security_alerts': list
-        }
-    """
     # Get client info
     ip_address = request.headers.get('X-Forwarded-For', request.remote_addr)
     if ip_address and ',' in ip_address:
@@ -730,7 +639,7 @@ def amazon_security_check(request, username, password=None):
         'challenge_id': None,
         'message': 'OK',
         'anomaly_score': 0,
-        'remaining_attempts': AmazonSecurityConfig.MAX_FAILED_ATTEMPTS,
+        'remaining_attempts': AuthSecurityConfig.MAX_FAILED_ATTEMPTS,
         'lockout_seconds': 0,
         'device_trusted': False,
         'device_fingerprint': device_fingerprint,
@@ -738,7 +647,6 @@ def amazon_security_check(request, username, password=None):
         'security_alerts': []
     }
     
-    # Check 1: Account/IP lockout
     is_locked, remaining_time, attempts = AccountLockout.is_locked(ip_address)
     if is_locked:
         result['allowed'] = False
@@ -750,7 +658,6 @@ def amazon_security_check(request, username, password=None):
         })
         return result
     
-    # Also check username lockout
     if username:
         is_locked, remaining_time, attempts = AccountLockout.is_locked(f"user_{username}")
         if is_locked:
@@ -759,14 +666,11 @@ def amazon_security_check(request, username, password=None):
             result['message'] = f"Account locked. Try again in {remaining_time} seconds"
             return result
     
-    # Check 2: Remaining attempts
     result['remaining_attempts'] = AccountLockout.get_remaining_attempts(ip_address)
     
-    # Check 3: Device trust
     if username:
         result['device_trusted'] = DeviceTrustManager.is_trusted_device(username, device_fingerprint)
     
-    # Check 4: Anomaly detection
     if username:
         anomaly_result = AnomalyDetector.analyze_login(
             username, ip_address, device_fingerprint, request
@@ -777,7 +681,6 @@ def amazon_security_check(request, username, password=None):
         if anomaly_result['is_suspicious']:
             result['security_alerts'].extend(anomaly_result['anomalies'])
     
-    # Check 5: Create MFA challenge if needed
     if result['requires_mfa'] and username:
         result['challenge_id'] = SecurityChallenge.create_challenge(username, 'mfa')
     
@@ -785,38 +688,23 @@ def amazon_security_check(request, username, password=None):
 
 
 def record_login_result(username, ip_address, device_fingerprint, device_info, success, trust_device=False):
-    """Record login result and update security state"""
-    
     if success:
-        # Clear failed attempts
         AccountLockout.clear_attempts(ip_address)
         AccountLockout.clear_attempts(f"user_{username}")
         
-        # Trust device if requested
         if trust_device:
             DeviceTrustManager.trust_device(username, device_fingerprint, device_info, ip_address)
         
-        # Record successful login
         LoginHistory.record_login(username, ip_address, device_info, True)
-        
-        logger.info(f"✅ Successful login: {username} from {ip_address}")
+        logger.info(f"Successful login: {username} from {ip_address}")
     else:
-        # Record failed attempt
         AccountLockout.record_failed_attempt(ip_address)
         AccountLockout.record_failed_attempt(f"user_{username}")
-        
-        # Record failed login
         LoginHistory.record_login(username, ip_address, device_info, False)
-        
-        logger.warning(f"❌ Failed login: {username} from {ip_address}")
+        logger.warning(f"Failed login: {username} from {ip_address}")
 
-
-# ============================================================================
-# API HELPER FUNCTIONS
-# ============================================================================
 
 def get_user_security_status(username):
-    """Get comprehensive security status for user"""
     return {
         'trusted_devices': DeviceTrustManager.get_trusted_devices(username),
         'recent_logins': LoginHistory.get_recent_logins(username),
@@ -826,7 +714,6 @@ def get_user_security_status(username):
 
 
 def enable_mfa(username):
-    """Enable MFA for user and return setup info"""
     secret = TOTPManager.generate_secret()
     backup_codes = TOTPManager.generate_backup_codes()
     
@@ -844,7 +731,7 @@ def enable_mfa(username):
 
 
 def verify_mfa(username, code):
-    """Verify MFA code for user"""
+    
     mfa_data = _mfa_secrets.get(f"mfa_{username}")
     
     if not mfa_data:
@@ -865,5 +752,7 @@ def verify_mfa(username, code):
 
 
 def is_mfa_enabled(username):
-    """Check if MFA is enabled for user"""
+    
     return _mfa_secrets.get(f"mfa_{username}") is not None
+
+

@@ -1,30 +1,17 @@
 /**
- * Login page stuff - handles authentication and redirects.
- * Enhanced with Amazon-level security features:
- * - Device fingerprinting
- * - MFA support
- * - Security alerts
- * - Trust device option
- * 
- * Optimized for low memory (Render 512MB tier)
+ * Login page - handles auth, MFA, device fingerprinting
  */
 
 console.log('[AUTH] Script loading...');
 
-// Get API URL based on environment
 function getAPIURL() {
     const hostname = window.location.hostname;
-    
-    // Local development or file:// access
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
         return 'http://127.0.0.1:5000';
     }
-    
-    // Production
     return 'https://phishing-detection-system-1.onrender.com';
 }
 
-// Throttle function
 function throttle(func, limit) {
     let inThrottle;
     return function(...args) {
@@ -36,9 +23,6 @@ function throttle(func, limit) {
     };
 }
 
-// ============================================
-// DEVICE FINGERPRINTING (Amazon-level security)
-// ============================================
 
 function generateDeviceFingerprint() {
     const components = [
@@ -49,7 +33,6 @@ function generateDeviceFingerprint() {
         new Date().getTimezoneOffset(),
         navigator.hardwareConcurrency || 'unknown',
         navigator.platform,
-        // Additional entropy sources
         navigator.maxTouchPoints || 0,
         navigator.deviceMemory || 'unknown',
         Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown'
@@ -57,7 +40,6 @@ function generateDeviceFingerprint() {
     
     const fingerprint = components.join('|');
     
-    // Use stronger hash function (cyrb53 - fast and good distribution)
     const cyrb53 = function(str, seed = 0) {
         let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
         for (let i = 0, ch; i < str.length; i++) {
@@ -86,10 +68,6 @@ function getTimezone() {
         return 'Unknown';
     }
 }
-
-// ============================================
-// MFA DIALOG
-// ============================================
 
 function showMFADialog(challengeId, onSubmit) {
     // Remove existing dialog if any
@@ -196,10 +174,6 @@ function showMFADialog(challengeId, onSubmit) {
     });
 }
 
-// ============================================
-// SECURITY ALERT BANNER
-// ============================================
-
 function showSecurityAlert(alerts, anomalyScore) {
     if (!alerts || alerts.length === 0) return;
     
@@ -282,10 +256,6 @@ function showSecurityAlert(alerts, anomalyScore) {
     // Auto-hide after 10 seconds
     setTimeout(() => banner.remove(), 10000);
 }
-
-// ============================================
-// TRUST DEVICE CHECKBOX
-// ============================================
 
 function addTrustDeviceOption() {
     const form = document.getElementById('loginForm');
@@ -720,3 +690,4 @@ window.addEventListener('DOMContentLoaded', function() {
     console.log('🔒 Device Fingerprint:', generateDeviceFingerprint());
     console.log('🔐 Amazon-Level Security Login System Ready');
 });
+

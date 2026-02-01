@@ -1,71 +1,46 @@
-"""
-External Credentials Loader
-Loads credentials from external folder for security
-"""
+"""External credentials loader"""
 
 import json
 import os
 import sys
 from pathlib import Path
 
-# Determine credentials path based on environment
-# Priority: 1) ENV_VAR, 2) External secure folder, 3) Project root
 if os.getenv('CREDENTIALS_PATH'):
     CREDENTIALS_PATH = os.getenv('CREDENTIALS_PATH')
-elif os.name == 'nt':  # Windows - use secure external folder
-    # Use environment variable or default secure location
+elif os.name == 'nt':
     CREDENTIALS_PATH = os.getenv('SECURE_CREDENTIALS_DIR', str(Path.home() / '.secure' / 'phishing' / 'credentials.json'))
-else:  # Linux/Unix (production server)
-    # Get project root directory (parent of backend folder)
+else:
     PROJECT_ROOT = Path(__file__).parent.parent
     CREDENTIALS_PATH = PROJECT_ROOT / "credentials.json"
 
-# Cache for loaded credentials
 _credentials_cache = None
 
 
 class CredentialsLoader:
-    """Load credentials from external secure location"""
-    
     @staticmethod
     def load_credentials():
-        """
-        Load credentials from external JSON file, then environment variables, then defaults
-        Returns: Dictionary with all credentials
-        """
         global _credentials_cache
         
-        # ALWAYS reload credentials from file (no caching for security)
-        # This allows password changes without restarting the API
-        
-        # Try 1: Load from credentials file (preferred method)
         if os.path.exists(CREDENTIALS_PATH):
             try:
-                # Load credentials from JSON file
                 with open(CREDENTIALS_PATH, 'r', encoding='utf-8') as f:
                     credentials = json.load(f)
-                
-                print(f"✅ Credentials loaded from file: {CREDENTIALS_PATH}")
+                print(f"Credentials loaded from: {CREDENTIALS_PATH}")
                 return credentials
-                
             except json.JSONDecodeError as e:
-                print(f"❌ ERROR: Invalid JSON in credentials file: {e}")
-                print(f"   Trying environment variables as fallback...")
+                print(f"ERROR: Invalid JSON in credentials file: {e}")
             except Exception as e:
-                print(f"❌ ERROR: Could not load credentials file: {e}")
-                print(f"   Trying environment variables as fallback...")
+                print(f"ERROR: Could not load credentials file: {e}")
         else:
-            print(f"⚠️  Credentials file not found at: {CREDENTIALS_PATH}")
-            print(f"   Trying environment variables as fallback...")
+            print(f"Credentials file not found at: {CREDENTIALS_PATH}")
         
-        # Try 2: Load from environment variables (fallback for Render/production)
         env_admin_username = os.getenv('ADMIN_USERNAME')
         env_admin_password_hash = os.getenv('ADMIN_PASSWORD_HASH')
         env_secret_key = os.getenv('SECRET_KEY')
         env_jwt_secret = os.getenv('JWT_SECRET_KEY')
         
         if env_admin_username and env_admin_password_hash and env_secret_key and env_jwt_secret:
-            print(f"✅ Credentials loaded from environment variables")
+            print("Credentials loaded from environment variables")
             return {
                 "admin": {
                     "username": env_admin_username,
@@ -94,9 +69,7 @@ class CredentialsLoader:
                 }
             }
         
-        # Try 3: Use default credentials (last resort - INSECURE!)
-        print(f"⚠️  WARNING: Could not load credentials from file or environment variables")
-        print(f"   Using default/fallback credentials (INSECURE!)")
+        print("WARNING: Using fallback credentials")
         return CredentialsLoader._get_default_credentials()
     
     @staticmethod

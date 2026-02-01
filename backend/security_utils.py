@@ -1,10 +1,4 @@
-"""
-Security utilities - auth, validation, rate limiting, all that good stuff.
-
-Most of this is standard security practices but I added some extra validation
-for URLs and user inputs. Better safe than sorry, especially with web APIs.
-The JWT token stuff took me a while to get working properly.
-"""
+"""Security utilities - auth, validation, rate limiting"""
 
 import re
 import jwt
@@ -18,10 +12,8 @@ from security_config import SecurityConfig, SUSPICIOUS_PATTERNS, COMPILED_SUSPIC
 import logging
 import sys
 
-# Use pre-compiled patterns for O(n) time complexity
 _COMPILED_SUSPICIOUS_PATTERNS = COMPILED_SUSPICIOUS_PATTERNS
 
-# Configure logging with UTF-8 encoding for Windows
 logging.basicConfig(
     level=getattr(logging, SecurityConfig.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -32,24 +24,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# In-memory storage for failed login attempts (use Redis in production)
 failed_login_attempts = {}
 blocked_ips = {}
 
-# Token blacklist for logout - invalidated tokens stored here
-# In production, use Redis with TTL matching token expiration
-# OPTIMIZED FOR 512MB RENDER - reduced size
 token_blacklist = set()
-MAX_BLACKLIST_SIZE = 2000  # Reduced from 10000 for 512MB RAM
+MAX_BLACKLIST_SIZE = 2000
 
-
-# Input validation constants
 MAX_USERNAME_LENGTH = 64
 MAX_PASSWORD_LENGTH = 256
 MIN_PASSWORD_LENGTH = 8
-USERNAME_PATTERN = r'^[a-zA-Z0-9_\-\.@]+$'  # Alphanumeric, underscore, dash, dot, @
+USERNAME_PATTERN = r'^[a-zA-Z0-9_\-\.@]+$'
+
+
 class SecurityValidator:
-    """Security validation utilities"""
     
     @staticmethod
     def sanitize_input(input_string):

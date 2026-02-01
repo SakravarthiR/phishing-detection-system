@@ -1,8 +1,4 @@
-"""
-IP-Based Session Security Module
-Enforces strict IP validation for session tokens and privileges.
-Only allows privileged operations from configured device IPs.
-"""
+"""IP-based session security"""
 
 import json
 import os
@@ -16,7 +12,6 @@ import secrets
 
 logger = logging.getLogger(__name__)
 
-# Redis session store (with in-memory fallback for development)
 try:
     REDIS_CLIENT = redis.Redis(
         host=os.getenv('REDIS_HOST', 'localhost'),
@@ -26,17 +21,15 @@ try:
     )
     REDIS_CLIENT.ping()
     USE_REDIS = True
-    logger.info("✅ Redis session store connected")
+    logger.info("Redis session store connected")
 except Exception as e:
-    logger.warning(f"⚠️  Redis not available: {e} - Using in-memory store (dev only)")
+    logger.warning(f"Redis not available: {e} - Using in-memory store")
     REDIS_CLIENT = None
     USE_REDIS = False
     SESSION_STORE = {}
 
 DEVICE_IP_WHITELIST = set()
 WHITELISTED_DEVICES = {}
-
-# Trusted proxies - only these can set X-Forwarded-For header
 TRUSTED_PROXIES = set(os.getenv('TRUSTED_PROXIES', '127.0.0.1,localhost').split(','))
 
 

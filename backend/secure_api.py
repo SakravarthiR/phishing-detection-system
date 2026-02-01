@@ -1,24 +1,13 @@
-"""
-Secure Phishing Detection API Server
-
-Enterprise-grade API with multi-layer security:
-- JWT authentication & session management
-- Rate limiting & DDoS protection
-- Input validation & sanitization
-- CSRF protection & secure headers
-
-Deployment: gunicorn -c backend/gunicorn_config.py backend.secure_api:app
-"""
+"""Phishing Detection API Server"""
 
 from flask import Flask, request, jsonify, g, send_from_directory
-# Using manual CORS headers instead of flask-cors for better control
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 import sys
 from datetime import datetime
-import gc  # Memory optimization
-import requests  # For HTTP requests with connection pooling
+import gc
+import requests
 import logging
 
 
@@ -27,13 +16,10 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-
-# Configure logging
 logger = logging.getLogger(__name__)
 
 
 def cleanup_memory():
-    """Force garbage collection and memory cleanup"""
     try:
         gc.collect()
         if hasattr(IPSessionManager, 'cleanup_expired_sessions'):
@@ -68,9 +54,9 @@ from ip_session_security import (
     normalize_ip
 )
 
-# Amazon-level security system
-from amazon_security import (
-    amazon_security_check,
+# Enterprise-grade security system
+from good_security import (
+    good_security_check,
     record_login_result,
     DeviceFingerprint,
     DeviceTrustManager,
@@ -84,7 +70,7 @@ from amazon_security import (
     verify_mfa,
     is_mfa_enabled,
     get_user_security_status,
-    AmazonSecurityConfig
+    AuthSecurityConfig
 )
 
 # Import ML modules
@@ -97,55 +83,43 @@ from phish_detector import (
     get_professional_risk_assessment
 )
 
-# Import PhishTank integration
 from phishtank_integration import check_phishtank, get_phishtank_db
 from subdomain_scanner import SubdomainScanner
 
-# Memory optimization utilities
 try:
     from memory_optimizer import cleanup_memory, get_memory_usage, memory_efficient
 except ImportError:
-    # Fallback if memory_optimizer not available
     def cleanup_memory(): gc.collect()
     def get_memory_usage(): return 0
     def memory_efficient(f): return f
 
-# Connection pooling OPTIMIZED FOR 512MB RENDER (single worker)
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+
 def create_session_with_pool():
-    """Create requests session with minimal connection pooling for 512MB"""
     session = requests.Session()
-    # Reduced pool size for single worker to save memory
     adapter = HTTPAdapter(
-        pool_connections=10,  # Reduced from 25
-        pool_maxsize=10,      # Reduced from 25
+        pool_connections=10,
+        pool_maxsize=10,
         max_retries=Retry(total=2, backoff_factor=0.3)
     )
     session.mount('http://', adapter)
     session.mount('https://', adapter)
     return session
 
-# Global session with connection pooling
+
 REQUESTS_SESSION = create_session_with_pool()
 
-# Initialize Flask app with security config
 app = Flask(__name__)
 app.config.from_object(SecurityConfig)
 
-# Enable response compression for low bandwidth
 try:
     from flask_compress import Compress
     Compress(app)
 except ImportError as e:
-        logger.warning(f"Flask-Compress not available - skipping compression: {str(e)}")
+    logger.warning(f"Flask-Compress not available: {str(e)}")
 
-# Configure CORS - Production ready configuration
-# Don't use flask-cors extension, use manual headers instead for better control
-# CORS(app, ...) is commented out to avoid conflicts
-
-# CORS - Secure configuration with specific allowed origins
 ALLOWED_ORIGINS = [
     'http://localhost',
     'http://127.0.0.1',
@@ -154,75 +128,63 @@ ALLOWED_ORIGINS = [
     'http://localhost:5000',
     'http://127.0.0.1:5000',
     'https://phishing-detection-system-1.onrender.com',
-    'null'  # For file:// access during development
+    'null'
 ]
+
 
 @app.after_request
 def after_request_cors(response):
-    """Handle CORS with specific allowed origins - prevents credential theft"""
     origin = request.headers.get('Origin', '')
-    
-    # Allow requests from approved origins only
     if origin in ALLOWED_ORIGINS or origin.startswith('http://127.0.0.1:') or origin.startswith('http://localhost:'):
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
     else:
-        # For non-credentialed requests, allow but don't include credentials
         response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
-    
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-CSRF-Token'
     response.headers['Access-Control-Expose-Headers'] = 'X-Request-ID'
     return response
 
-# Initialize rate limiter with global protection
+
 limiter = Limiter(
     app=app,
-    key_func=lambda: get_client_ip(),  # Use custom IP extraction
+    key_func=lambda: get_client_ip(),
     storage_uri=SecurityConfig.RATE_LIMIT_STORAGE_URL,
     default_limits=[
         f"{SecurityConfig.RATE_LIMIT_PER_MINUTE} per minute",
         f"{SecurityConfig.RATE_LIMIT_PER_HOUR} per hour"
     ],
     enabled=SecurityConfig.RATE_LIMIT_ENABLED,
-    in_memory_fallback_enabled=True  # Fallback if Redis unavailable
+    in_memory_fallback_enabled=True
 )
 
-# Global model variable
 model = None
 model_loaded = False
-# Use absolute path for model file - works both locally and on Render
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'phish_model.pkl')
 
 
 def initialize_model():
-    """Load the ML model at application startup"""
     global model, model_loaded
-    
-    logger.info("🔄 Initializing secure phishing detector API...")
+    logger.info("Initializing phishing detector API...")
     model = load_model(MODEL_PATH)
-    
     if model is not None:
         model_loaded = True
-        logger.info("✅ API ready with trained model")
+        logger.info("API ready with trained model")
     else:
         model_loaded = False
-        logger.warning("⚠️  API started but model not loaded")
+        logger.warning("API started but model not loaded")
 
 
-# Initialize IP session security
 IPSessionManager.load_whitelisted_devices()
-logger.info("✅ IP Session Security initialized")
+logger.info("IP Session Security initialized")
 
-# Load model when app starts
 initialize_model()
 
-# Setup frontend serving
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+
 
 @app.route('/')
 def serve_index():
-    """Serve the main index.html"""
     return send_from_directory(FRONTEND_DIR, 'index.html')
 
 @app.route('/<path:filename>')
@@ -469,7 +431,7 @@ def demo_login():
 @app.route('/login', methods=['POST', 'OPTIONS'])
 def login():
     """
-    User authentication endpoint with Amazon-level security
+    User authentication endpoint with enterprise-level security
     
     Features:
     - Progressive account lockout
@@ -549,9 +511,9 @@ def login():
             }), 400
         
         # ============================================
-        # AMAZON-LEVEL SECURITY CHECK (Pre-auth)
+        # ENTERPRISE-LEVEL SECURITY CHECK (Pre-auth)
         # ============================================
-        security_check = amazon_security_check(request, username, password)
+        security_check = good_security_check(request, username, password)
         
         # Check if account is locked
         if not security_check['allowed']:
@@ -610,7 +572,7 @@ def login():
         )
         
         if not is_authenticated:
-            # Record failed attempt with Amazon security
+            # Record failed attempt with security system
             record_login_result(username, ip_address, security_check['device_fingerprint'],
                               security_check['device_info'], False)
             
@@ -681,7 +643,7 @@ def login():
         # LOGIN SUCCESS - Record and Create Session
         # ============================================
         
-        # Record successful login with Amazon security
+        # Record successful login with security system
         record_login_result(
             username, ip_address, 
             security_check['device_fingerprint'],
