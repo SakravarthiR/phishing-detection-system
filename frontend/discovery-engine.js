@@ -955,11 +955,11 @@ function logout() {
         // Clear session storage
         sessionStorage.clear();
         
-        // Redirect to tracking eyes page
-        window.location.href = 'tracking-eyes.html';
+        // Redirect to landing page
+        window.location.href = 'index.html';
     } catch (e) {
         console.error('Logout error:', e);
         // Force redirect anyway
-        window.location.href = 'tracking-eyes.html';
+        window.location.href = 'index.html';
     }
 }

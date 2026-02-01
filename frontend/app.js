@@ -4,10 +4,29 @@
  * Optimized for low memory environments (Render 512MB)
  */
 
-// Redirect to login if not authenticated
-if (typeof isSessionValid === 'function' && !isSessionValid()) {
-    window.location.href = 'secure-auth-portal.html';
-}
+// Check authentication on page load
+(function checkAuth() {
+    try {
+        const session = localStorage.getItem('phishing_detector_session');
+        if (!session) {
+            console.log('[AUTH] No session, redirecting to login');
+            window.location.href = 'secure-auth-portal.html';
+            return;
+        }
+        const parsed = JSON.parse(session);
+        const now = new Date().getTime();
+        if (now >= parsed.expiry) {
+            console.log('[AUTH] Session expired, redirecting to login');
+            localStorage.removeItem('phishing_detector_session');
+            window.location.href = 'secure-auth-portal.html';
+            return;
+        }
+        console.log('[AUTH] Session valid, user:', parsed.username);
+    } catch (e) {
+        console.error('[AUTH] Error checking session:', e);
+        window.location.href = 'secure-auth-portal.html';
+    }
+})();
 
 
 // Global unhandled promise rejection handler
@@ -1347,12 +1366,12 @@ function logout() {
         // Clear session storage completely
         sessionStorage.clear();
         
-        // Redirect to tracking eyes page
-        window.location.href = 'tracking-eyes.html';
+        // Redirect to landing page
+        window.location.href = 'index.html';
     } catch (e) {
         console.error('Logout error:', e);
         // Force redirect anyway
-        window.location.href = 'tracking-eyes.html';
+        window.location.href = 'index.html';
     }
 }
 
