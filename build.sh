@@ -76,11 +76,13 @@ log_info "Verifying frontend files..."
 
 # Final validation
 log_info "Running final validation..."
+cd backend
 python -c "
-from backend.phish_detector import load_model, extract_features
-from backend.security_utils import logger
+from phish_detector import load_model, extract_features
+from security_utils import logger
 print('[✓] Core modules import successfully')
 " || (log_error "Failed to import core modules"; exit 1)
+cd ..
 
 echo ""
 echo "========================================="
@@ -90,5 +92,5 @@ echo "Backend is ready to start with:"
 echo "  python backend/secure_api.py"
 echo "  or"
 echo "  gunicorn --config backend/gunicorn_config.py backend/secure_api:app"
-echo "========================================="
+echo "=========================================
 
