@@ -72,7 +72,7 @@ log_info "✓ All Python files have valid syntax"
 log_info "Verifying frontend files..."
 [ -f "frontend/index.html" ] && log_info "✓ index.html found" || (log_error "index.html not found"; exit 1)
 [ -f "frontend/app.js" ] && log_info "✓ app.js found" || (log_error "app.js not found"; exit 1)
-[ -f "frontend/styles.css" ] && log_info "✓ styles.css found" || (log_error "styles.css not found"; exit 1)
+[ -f "frontend/professional.css" ] && log_info "✓ professional.css found" || (log_error "professional.css not found"; exit 1)
 
 # Final validation
 log_info "Running final validation..."
