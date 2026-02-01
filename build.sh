@@ -92,5 +92,5 @@ echo "Backend is ready to start with:"
 echo "  python backend/secure_api.py"
 echo "  or"
 echo "  gunicorn --config backend/gunicorn_config.py backend/secure_api:app"
-echo "=========================================
+echo "========================================="
 
