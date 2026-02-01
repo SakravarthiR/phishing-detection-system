@@ -24,6 +24,8 @@ env/
 credentials.json
 config/credentials.json
 **/credentials.json
+device_whitelist.json
+**/device_whitelist.json
 
 # IDE
 .vscode/

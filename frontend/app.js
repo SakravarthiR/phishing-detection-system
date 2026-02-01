@@ -4,6 +4,12 @@
  * Optimized for low memory environments (Render 512MB)
  */
 
+// Redirect to login if not authenticated
+if (typeof isSessionValid === 'function' && !isSessionValid()) {
+    window.location.href = 'secure-auth-portal.html';
+}
+
+
 // Global unhandled promise rejection handler
 window.addEventListener('unhandledrejection', event => {
     console.error('[UNHANDLED PROMISE REJECTION]', event.reason);
@@ -54,6 +60,18 @@ function cleanupAllListeners() {
 
 // Register cleanup on unload
 window.addEventListener('beforeunload', cleanupAllListeners, {once: true});
+
+// Throttle function for performance
+function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
 
 // 3D Parallax Background Effect (throttled for performance)
 const parallaxHandler = throttle((e) => {
@@ -212,10 +230,8 @@ function init() {
     btnText = document.getElementById('btnText');
     btnLoader = document.getElementById('btnLoader');
     
-    // Clear any persisted input value on page load
-    if (urlInput) {
-        urlInput.value = '';
-    }
+    console.log('[DEBUG] URL input element:', urlInput);
+    console.log('[DEBUG] Current value:', urlInput ? urlInput.value : 'null');
     
     resultsSection = document.getElementById('resultsSection');
     resultsCard = document.getElementById('resultsCard');
@@ -261,242 +277,21 @@ function init() {
         logoutBtn.addEventListener('click', logout);
     }
     
-    // Initialize session management with inactivity timeout
-    initializeSessionManagement();
-    
-    // Restore previous session state ONLY if session is still valid
-    restoreSessionState();
-    
     console.log('[+] App initialized successfully');
 }
 
-// Session management variables
-let inactivityTimer = null;
-const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
-const SESSION_EXPIRY_KEY = 'phishing_detector_session_expiry';
-const SESSION_STATE_KEY = 'phishing_detector_state';
+// Session management variables - REMOVED TO FIX TEXT DISAPPEARING ISSUE
+// The session auto-save/restore was interfering with user input
 
-/**
- * Initialize session management with inactivity tracking (optimized for low memory)
- */
-function initializeSessionManagement() {
-    // Set initial session expiry time (30 minutes from now)
-    updateSessionExpiry();
-    
-    // Create throttled activity handler to prevent excessive DOM queries
-    const activityHandler = throttle(() => {
-        updateSessionExpiry();
-    }, 5000); // Throttle activity to 5 seconds
-    
-    // Track user activity (keyboard, mouse, scroll) with throttling
-    document.addEventListener('mousemove', activityHandler, {passive: true});
-    document.addEventListener('keydown', activityHandler, {passive: true});
-    document.addEventListener('click', activityHandler, {passive: true});
-    document.addEventListener('scroll', activityHandler, {passive: true});
-    document.addEventListener('touchstart', activityHandler, {passive: true});
-    
-    // Save session state periodically (every 10 seconds instead of 5)
-    const saveInterval = setInterval(() => {
-        try {
-            saveSessionState();
-        } catch (e) {
-            console.warn('Session save error:', e);
-        }
-    }, 10000);
-    
-    // Save on page unload
-    window.addEventListener('beforeunload', saveSessionState, {once: true});
-    
-    // Check session on page load
-    checkSessionExpiry();
-    
-    // Check session periodically (every 2 minutes instead of 1)
-    const checkInterval = setInterval(() => {
-        try {
-            checkSessionExpiry();
-        } catch (e) {
-            console.warn('Session check error:', e);
-        }
-    }, 120000);
-    
-    // Store intervals for cleanup on unload
-    window._sessionIntervals = [saveInterval, checkInterval];
-    
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', () => {
-        if (window._sessionIntervals) {
-            window._sessionIntervals.forEach(id => clearInterval(id));
-            window._sessionIntervals = null;
-        }
-    }, {once: true});
-    
-    console.log('[+] Session management initialized (30-minute inactivity timeout)');
-}
-
-/**
- * Reset inactivity timer on user activity
- */
-function resetInactivityTimer() {
-    updateSessionExpiry();
-}
-
-/**
- * Update session expiry time to 30 minutes from now
- */
-function updateSessionExpiry() {
-    try {
-        const expiryTime = Date.now() + INACTIVITY_TIMEOUT;
-        localStorage.setItem(SESSION_EXPIRY_KEY, expiryTime.toString());
-    } catch (e) {
-        console.error('Error updating session expiry:', e);
-    }
-}
-
-/**
- * Check if session has expired due to inactivity
- */
-function checkSessionExpiry() {
-    try {
-        const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
-        if (!expiryTime) {
-            // No session expiry set, initialize it
-            updateSessionExpiry();
-            return;
-        }
-        
-        const now = Date.now();
-        if (now > parseInt(expiryTime)) {
-            // Session expired - clear all session data
-            clearSessionData();
-            showInactivityWarning();
-        }
-    } catch (e) {
-        console.error('Error checking session expiry:', e);
-    }
-}
-
-/**
- * Clear all session data
- */
-
-function clearSessionData() {
-    try {
-        localStorage.removeItem(SESSION_EXPIRY_KEY);
-        localStorage.removeItem(SESSION_STATE_KEY);
-        localStorage.removeItem('phishing_detector_session');
-        console.log('[+] Session cleared due to inactivity');
-    } catch (e) {
-        console.error('Error clearing session data:', e);
-    }
-}
-
-/**
- * Show warning that session has expired
- */
-function showInactivityWarning() {
-    // Clear the UI
-    if (resultsSection) {
-        resultsSection.style.display = 'none';
-    }
-    if (urlInput) {
-        urlInput.value = '';
-    }
-    
-    // Show error message
-    showError('Session expired due to inactivity (30 minutes). Please refresh the page to continue.');
-    
-    // Optionally, auto-reload after showing warning
-    setTimeout(() => {
-        location.reload();
-    }, 3000);
-}
-
-/**
- * Save current page state to localStorage for session persistence
- */
-function saveSessionState() {
-    try {
-        // Only save if session is still valid
-        const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
-        if (!expiryTime || Date.now() > parseInt(expiryTime)) {
-            return; // Don't save if session expired
-        }
-        
-        const sessionState = {
-            timestamp: Date.now(),
-            lastActivityTime: Date.now(),
-            url: urlInput ? urlInput.value : '',
-            resultsVisible: resultsSection ? resultsSection.style.display !== 'none' : false,
-            currentResult: {
-                label: resultLabel ? resultLabel.textContent : '',
-                url: resultUrl ? resultUrl.textContent : '',
-                probability: resultProbability ? resultProbability.textContent : '',
-                classification: resultClassification ? resultClassification.textContent : '',
-                reason: resultReason ? resultReason.textContent : '',
-            },
-            scrollPosition: window.scrollY,
-        };
-        
-        localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(sessionState));
-    } catch (e) {
-        console.error('Error saving session state:', e);
-    }
-}
-
-/**
- * Restore previous page state from localStorage (only if session is valid)
- */
-function restoreSessionState() {
-    try {
-        // First check if session has expired
-        const expiryTime = localStorage.getItem(SESSION_EXPIRY_KEY);
-        if (!expiryTime || Date.now() > parseInt(expiryTime)) {
-            // Session expired - clear everything
-            clearSessionData();
-            return;
-        }
-        
-        const savedState = localStorage.getItem(SESSION_STATE_KEY);
-        if (!savedState) return;
-        
-        const state = JSON.parse(savedState);
-        
-        // Restore results if they were visible (but NOT the URL input - let user enter fresh)
-        // This prevents the URL from persisting across page refreshes
-        if (state.resultsVisible && state.currentResult) {
-            setTimeout(() => {
-                // Restore result display
-                if (resultLabel && state.currentResult.label) {
-                    resultLabel.textContent = state.currentResult.label;
-                }
-                if (resultUrl && state.currentResult.url) {
-                    resultUrl.textContent = state.currentResult.url;
-                }
-                if (resultProbability && state.currentResult.probability) {
-                    resultProbability.textContent = state.currentResult.probability;
-                }
-                if (resultClassification && state.currentResult.classification) {
-                    resultClassification.textContent = state.currentResult.classification;
-                }
-                if (resultReason && state.currentResult.reason) {
-                    resultReason.textContent = state.currentResult.reason;
-                }
-                
-                // Show results section
-                if (resultsSection) {
-                    resultsSection.style.display = 'block';
-                }
-                
-                // Restore scroll position
-                window.scrollTo(0, state.scrollPosition);
-                
-                console.log('[+] Session state restored (user returned within 30 min inactivity timeout)');
-            }, 100);
-        }
-    } catch (e) {
-        console.error('Error restoring session state:', e);
-    }
-}
+// Removed functions:
+// - initializeSessionManagement()
+// - saveSessionState()
+// - restoreSessionState()
+// - checkSessionExpiry()
+// - updateSessionExpiry()
+// - resetInactivityTimer()
+// - clearSessionData()
+// - showInactivityWarning()
 
 /**
  * Get JWT token from localStorage
@@ -840,7 +635,7 @@ function displayResults(data) {
     confidenceSection.style.backgroundColor = riskColor + '15';
     
     const confLabel = document.createElement('span');
-    confLabel.className = 'confidence-label';
+    confLabel.className = 'confidence-label';   
     confLabel.textContent = 'Confidence Level:';
     
     const confValue = document.createElement('span');
@@ -1304,8 +1099,7 @@ function hideLoading() {
 
 function showResults() {
     resultsSection.classList.remove('hidden');
-    // Save session state when results are shown
-    saveSessionState();
+    // Session state saving removed - was causing input field issues
 }
 
 function hideResults() {
@@ -1400,6 +1194,7 @@ function updateHistoryDisplay() {
         const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
         const historyTableBody = document.getElementById('historyTableBody');
         const historyTableContainer = document.querySelector('.history-table-container');
+        const historySidebar = document.querySelector('.scan-history-sidebar-main');
         
         if (!historyTableBody) return;
         
@@ -1410,17 +1205,17 @@ function updateHistoryDisplay() {
         if (history.length === 0) {
             historyTableBody.innerHTML = '';
             
-            // Show empty state and hide table container
-            if (emptyState) {
-                emptyState.style.display = 'block';
-            }
-            if (historyTableContainer) {
-                historyTableContainer.style.display = 'none';
+            // Hide entire sidebar when no history
+            if (historySidebar) {
+                historySidebar.style.display = 'none';
             }
             return;
         }
         
-        // Hide empty state and show table container
+        // Show sidebar and table container when history exists
+        if (historySidebar) {
+            historySidebar.style.display = 'block';
+        }
         if (emptyState) {
             emptyState.style.display = 'none';
         }

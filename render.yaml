@@ -21,7 +21,7 @@ services:
     plan: free  # KEEP: Free tier with optimizations
     branch: main
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: cd backend && gunicorn --config gunicorn_config.py --workers 1 --max-requests 100 secure_api:app
+    startCommand: cd backend && gunicorn --config gunicorn_config.py --workers 1 --threads 2 --max-requests 100 --max-requests-jitter 10 secure_api:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -48,6 +48,20 @@ services:
         value: 6
       - key: PYTHONUNBUFFERED
         value: "1"
+      # Memory optimization for 512MB free tier
+      - key: MEMORY_CONSTRAINT
+        value: "512MB"
+      - key: RENDER
+        value: "true"
+      - key: ENVIRONMENT
+        value: "production"
+      - key: FLASK_ENV
+        value: "production"
+      # Python memory optimization
+      - key: PYTHONMALLOC
+        value: "malloc"
+      - key: MALLOC_TRIM_THRESHOLD_
+        value: "65536"
     healthCheckPath: /health
     headers:
       - path: /*

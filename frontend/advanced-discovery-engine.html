@@ -324,13 +324,13 @@
         <section id="errorSection" class="error-section hidden">
             <div class="error-card">
                 <div class="error-icon-wrapper">
-                    <div class="error-icon">⚠</div>
+                    <div class="error-icon">[X]</div>
                 </div>
                 <h3 class="error-title">Scan Failed</h3>
                 <p id="errorMessage" class="error-message"></p>
                 <div class="error-actions">
                     <button id="retryBtn" class="retry-btn">
-                        <span class="btn-icon">🔄</span>
+                        <span class="btn-icon">[R]</span>
                         Try Again
                     </button>
                 </div>
@@ -342,7 +342,7 @@
             <!-- Success Header -->
             <div class="results-header">
                 <div class="success-badge">
-                    <span class="success-icon">✓</span>
+                    <span class="success-icon">[+]</span>
                     <span>Scan Complete</span>
                 </div>
                 <h2 class="results-title">Discovery Report</h2>
@@ -352,7 +352,7 @@
             <div class="summary-grid">
                 <div class="metric-card primary">
                     <div class="metric-header">
-                        <div class="metric-icon">●</div>
+                        <div class="metric-icon">[*]</div>
                         <span class="metric-trend up">Active</span>
                     </div>
                     <div class="metric-body">
@@ -363,7 +363,7 @@
                 
                 <div class="metric-card success">
                     <div class="metric-header">
-                        <div class="metric-icon">✓</div>
+                        <div class="metric-icon">[+]</div>
                         <span class="metric-trend up">Discovered</span>
                     </div>
                     <div class="metric-body">
@@ -374,7 +374,7 @@
                 
                 <div class="metric-card info">
                     <div class="metric-header">
-                        <div class="metric-icon">🌐</div>
+                        <div class="metric-icon">[#]</div>
                         <span class="metric-trend">Primary</span>
                     </div>
                     <div class="metric-body">
@@ -386,7 +386,7 @@
                 
                 <div class="metric-card warning">
                     <div class="metric-header">
-                        <div class="metric-icon">→</div>
+                        <div class="metric-icon">[>]</div>
                         <span class="metric-trend">Fast</span>
                     </div>
                     <div class="metric-body">
@@ -400,27 +400,27 @@
             <div class="stats-overview">
                 <div class="stats-header">
                     <h3 class="stats-title">
-                        <span class="title-icon">📊</span>
+                        <span class="title-icon">[%]</span>
                         Scan Analytics
                     </h3>
                 </div>
                 <div class="stats-cards">
                     <div class="stat-card">
-                        <div class="stat-icon">📅</div>
+                        <div class="stat-icon">[D]</div>
                         <div class="stat-content">
                             <div class="stat-label">Scan Date</div>
                             <div class="stat-value" id="scanDate">--</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">🌍</div>
+                        <div class="stat-icon">[W]</div>
                         <div class="stat-content">
                             <div class="stat-label">Unique IP Addresses</div>
                             <div class="stat-value" id="uniqueIps">--</div>
                         </div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-icon">🔒</div>
+                        <div class="stat-icon">[S]</div>
                         <div class="stat-content">
                             <div class="stat-label">Cloudflare Protected</div>
                             <div class="stat-value" id="cloudflareCount">--</div>
@@ -433,7 +433,7 @@
             <div class="ip-distribution-section">
                 <div class="section-header">
                     <h3 class="section-title">
-                        <span class="title-icon">📍</span>
+                        <span class="title-icon">[IP]</span>
                         IP Address Distribution
                     </h3>
                     <span class="section-badge">Top 10</span>
@@ -446,13 +446,13 @@
                 <div class="data-table-header">
                     <div class="table-title-group">
                         <h3 class="table-title">
-                            <span class="title-icon">✓</span>
+                            <span class="title-icon">[+]</span>
                             Discovered Subdomains
                         </h3>
                         <span class="table-count" id="tableCount">0 results</span>
                     </div>
                     <button id="exportBtn" class="export-btn">
-                        <span class="btn-icon">⬇</span>
+                        <span class="btn-icon">[v]</span>
                         <span>Export CSV</span>
                     </button>
                 </div>
@@ -504,7 +504,7 @@
             <aside class="scan-history-sidebar-main">
                 <div class="history-header">
                     <h3 class="history-title">
-                        <span class="history-icon">📋</span>
+                        <span class="history-icon">[#]</span>
                         Recent Scans
                     </h3>
                     <button id="clearHistoryBtn" class="clear-history-btn delete-btn-animated" title="Clear History">
@@ -525,7 +525,7 @@
 
                 <div id="historyList" class="history-list">
                     <div class="history-empty">
-                        <div class="empty-icon">📋</div>
+                        <div class="empty-icon">[~]</div>
                         <p class="empty-text">No scan history yet</p>
                         <p class="empty-hint">Start scanning to see history</p>
                     </div>

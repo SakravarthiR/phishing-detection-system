@@ -11,15 +11,16 @@ port = os.environ.get("PORT", "5000")
 bind = f"0.0.0.0:{port}"
 backlog = 2048
 
-# Worker processes - OPTIMIZED FOR 50 CONCURRENT USERS ON 512MB FREE TIER
-# 2 workers with connection pooling supports ~50 concurrent users safely
-workers = 2  # 2 workers for 512MB (each ~100MB) with 25 connections per worker = 50 total
+# Worker processes - OPTIMIZED FOR 512MB RENDER FREE TIER
+# Single worker to maximize available RAM per process
+# With 512MB total, 1 worker gets ~400MB usable after OS overhead
+workers = 1  # Single worker for 512MB (uses ~150-200MB)
 worker_class = "sync"  # Synchronous worker (most memory efficient)
-worker_connections = 25  # 25 connections per worker = 50 concurrent users total
-timeout = 60  # Increased timeout for complex predictions
+worker_connections = 50  # Handle 50 concurrent connections
+timeout = 120  # Increased timeout for cold starts on Render
 keepalive = 2  # Minimal keepalive to close idle connections
-max_requests = 200  # Restart worker every 200 requests to prevent memory bloat
-max_requests_jitter = 20  # Randomize restarts to avoid sync restarts
+max_requests = 100  # Restart worker every 100 requests to prevent memory bloat
+max_requests_jitter = 10  # Randomize restarts
 
 # Logging
 # On Render, logs go to stdout/stderr (no need for log files)

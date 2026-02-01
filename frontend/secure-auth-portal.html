@@ -16,21 +16,25 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <div class="lock-icon">🔐</div>
-                <h1>SYSTEM ACCESS</h1>
+                
+                
                 <p class="subtitle">AUTHENTICATION REQUIRED</p>
             </div>
 
-            <form id="loginForm" class="login-form">
+            <form id="loginForm" class="login-form" onsubmit="return false;">
                 <div class="form-group">
                     <label for="username">USERNAME</label>
                     <input 
                         type="text" 
                         id="username" 
+                        name="username"
                         class="login-input"
                         placeholder="Enter username"
-                        required
-                        autocomplete="username"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        data-form-type="other"
                     />
                 </div>
 
@@ -39,36 +43,35 @@
                     <input 
                         type="password" 
                         id="password" 
+                        name="password"
                         class="login-input"
                         placeholder="Enter password"
-                        required
-                        autocomplete="current-password"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        data-form-type="other"
                     />
                 </div>
 
                 <div id="errorMessage" class="error-message hidden"></div>
 
-                <button type="submit" id="loginBtn" class="login-btn">
-                    <span class="btn-icon">→</span>
-                    <span class="btn-text">ACCESS SYSTEM</span>
-                    <span class="btn-spinner hidden">
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                        <span class="dot"></span>
-                    </span>
-                </button>
-            </form>
-
-            <div class="login-footer">
-                <p class="security-notice">[*] SECURE CONNECTION ESTABLISHED</p>
-            </div>
-        </div>
-    </div>
+                <button type="button" id="loginBtn" class="login-btn">
+                    <span class="btn-icon">[>]</span>
+                <span class="btn-text">LOGIN</span>
+                <span class="btn-spinner hidden">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </span>
+            </button>
+        </form>
 
     <div class="glass-quote">
         "As long as someone's still breathing, the fight isn't over"
     </div>
 
+    <script src="session-manager.js"></script>
     <script src="auth-secure.js"></script>
 </body>
 </html>

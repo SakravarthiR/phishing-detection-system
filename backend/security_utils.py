@@ -14,9 +14,12 @@ import validators
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify, g
-from security_config import SecurityConfig, SUSPICIOUS_PATTERNS
+from security_config import SecurityConfig, SUSPICIOUS_PATTERNS, COMPILED_SUSPICIOUS_PATTERNS
 import logging
 import sys
+
+# Use pre-compiled patterns for O(n) time complexity
+_COMPILED_SUSPICIOUS_PATTERNS = COMPILED_SUSPICIOUS_PATTERNS
 
 # Configure logging with UTF-8 encoding for Windows
 logging.basicConfig(
@@ -32,6 +35,12 @@ logger = logging.getLogger(__name__)
 # In-memory storage for failed login attempts (use Redis in production)
 failed_login_attempts = {}
 blocked_ips = {}
+
+# Token blacklist for logout - invalidated tokens stored here
+# In production, use Redis with TTL matching token expiration
+# OPTIMIZED FOR 512MB RENDER - reduced size
+token_blacklist = set()
+MAX_BLACKLIST_SIZE = 2000  # Reduced from 10000 for 512MB RAM
 
 
 # Input validation constants
@@ -151,9 +160,10 @@ class SecurityValidator:
         if not isinstance(input_string, str):
             return False
         
-        for pattern in SUSPICIOUS_PATTERNS:
-            if re.search(pattern, input_string, re.IGNORECASE):
-                logger.warning(f"Suspicious pattern detected: {input_string}")
+        # Use pre-compiled patterns for O(n) instead of O(n*m)
+        for pattern in _COMPILED_SUSPICIOUS_PATTERNS:
+            if pattern.search(input_string):
+                logger.warning(f"Suspicious pattern detected in input")
                 return True
         
         return False
@@ -260,7 +270,7 @@ class AuthenticationManager:
             is_valid = bcrypt.checkpw(password, password_hash)
             
             if not is_valid:
-                logger.warning(f"Password verification failed for hash: {password_hash[:20]}...")
+                logger.warning("Password verification failed")
             
             return is_valid
         except Exception as e:
@@ -311,6 +321,11 @@ class AuthenticationManager:
             tuple: (is_valid, payload, error_message)
         """
         try:
+            # Check if token is blacklisted (logged out)
+            if token in token_blacklist:
+                logger.warning("Attempted use of blacklisted token")
+                return False, None, "Token has been invalidated"
+            
             payload = jwt.decode(
                 token,
                 SecurityConfig.JWT_SECRET_KEY,
@@ -325,6 +340,31 @@ class AuthenticationManager:
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid token: {str(e)}")
             return False, None, "Invalid token"
+    
+    @staticmethod
+    def blacklist_token(token):
+        """
+        Add token to blacklist to invalidate it (for logout)
+        
+        Args:
+            token: JWT token string to invalidate
+            
+        Returns:
+            bool: True if blacklisted successfully
+        """
+        global token_blacklist
+        try:
+            # Prevent unbounded growth
+            if len(token_blacklist) >= MAX_BLACKLIST_SIZE:
+                # Remove oldest entries (convert to list, remove first half)
+                token_blacklist = set(list(token_blacklist)[MAX_BLACKLIST_SIZE // 2:])
+            
+            token_blacklist.add(token)
+            logger.info("Token added to blacklist")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to blacklist token: {e}")
+            return False
     
     @staticmethod
     def authenticate_user(username, password):

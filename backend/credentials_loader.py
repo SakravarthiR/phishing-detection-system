@@ -102,18 +102,37 @@ class CredentialsLoader:
     @staticmethod
     def _get_default_credentials():
         """
-        Fallback default credentials
+        Fallback default credentials - GENERATES RANDOM KEYS FOR SECURITY
         Used only if external file cannot be loaded
+        WARNING: Password will not work until properly configured!
         """
+        import secrets
+        import bcrypt
+        
+        # Generate random secure keys if not configured
+        random_secret = secrets.token_hex(32)
+        random_jwt = secrets.token_hex(32)
+        
+        # Generate a random password hash that won't match anything
+        # Forces user to configure proper credentials
+        unusable_hash = bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt()).decode('utf-8')
+        
+        print("="*60)
+        print("[!] SECURITY WARNING: Using fallback credentials!")
+        print("    Login will NOT work until you configure credentials.json")
+        print("    or set environment variables: ADMIN_USERNAME, ADMIN_PASSWORD_HASH")
+        print("    See SECURITY.md for setup instructions")
+        print("="*60)
+        
         return {
             "admin": {
-                "username": "admin",
-                "password_hash": "$2b$12$mKjUEPz0ks55uPXgMH4mMuGwl/ogJRS6TBRAjSO5jh2n84MrZf4v6",
+                "username": os.getenv('ADMIN_USERNAME', 'admin'),
+                "password_hash": unusable_hash,  # Won't match any password
                 "role": "admin"
             },
             "api_keys": {
-                "secret_key": "default-insecure-key-change-immediately",
-                "jwt_secret_key": "default-insecure-jwt-key-change-immediately"
+                "secret_key": random_secret,
+                "jwt_secret_key": random_jwt
             },
             "security": {
                 "session_timeout_minutes": 1440,

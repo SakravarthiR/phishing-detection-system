@@ -1,7 +1,7 @@
 """
-Security Configuration Module
-Handles all security-related configurations and utilities
-Loads credentials from external secure location
+security configs
+handles security stuff and utilites
+loads credentials from external secure location
 """
 
 import os
@@ -9,10 +9,10 @@ import secrets
 from datetime import timedelta
 from dotenv import load_dotenv
 
-# Load environment variables
+# load environment variables
 load_dotenv()
 
-# Import external credentials loader
+# import external credentials loader
 try:
     from credentials_loader import (
         get_secret_key,
@@ -24,7 +24,7 @@ try:
     )
     EXTERNAL_CREDENTIALS_LOADED = True
 except ImportError as e:
-    print(f"⚠️  WARNING: Could not load external credentials: {e}")
+    print(f"WARNING: Could not load external credentials: {e}")
     print(f"   Using environment variables instead")
     EXTERNAL_CREDENTIALS_LOADED = False
 
@@ -72,8 +72,8 @@ class SecurityConfig:
     FORCE_HTTPS = os.getenv('FORCE_HTTPS', 'False') == 'True'
     CONTENT_SECURITY_POLICY = {
         'default-src': "'self'",
-        'script-src': ["'self'", "'unsafe-inline'"],
-        'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        'script-src': ["'self'"],  # Removed unsafe-inline for XSS protection
+        'style-src': ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],  # Styles need inline for dynamic UI
         'font-src': ["'self'", "https://fonts.gstatic.com"],
         'img-src': ["'self'", "data:", "https:"],
         'connect-src': ["'self'"]
@@ -131,9 +131,9 @@ class SecurityConfig:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     LOG_FILE = os.getenv('LOG_FILE', 'security.log')
     
-    # Environment
-    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
-    DEBUG = os.getenv('DEBUG', 'False') == 'True'
+    # Environment - Default to production for security
+    FLASK_ENV = os.getenv('FLASK_ENV', 'production')
+    DEBUG = os.getenv('DEBUG', 'False').lower() == 'true' and FLASK_ENV != 'production'
 
 
 # Security Constants
@@ -155,6 +155,10 @@ SUSPICIOUS_PATTERNS = [
     r"(\.\.\/|\.\.\\|%2e%2e%2f|%2e%2e%5c)",
 ]
 
+# Pre-compile suspicious patterns for O(n) instead of O(n*m) - TIME COMPLEXITY OPTIMIZATION
+import re as _re
+COMPILED_SUSPICIOUS_PATTERNS = tuple(_re.compile(p, _re.IGNORECASE) for p in SUSPICIOUS_PATTERNS)
+
 # Allowed content types
 ALLOWED_CONTENT_TYPES = ['application/json']
 
@@ -164,7 +168,6 @@ SECURITY_HEADERS = {
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
-    'Content-Security-Policy': "default-src 'self'",
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
 }

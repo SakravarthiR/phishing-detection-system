@@ -13,9 +13,11 @@ from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
-# Aggressive memory threshold for Render 512MB (256MB per worker process)
-MEMORY_THRESHOLD_MB = 200  # Reduced from 256 for safety margin
-CRITICAL_MEMORY_MB = 150   # Trigger cleanup at 150MB
+# OPTIMIZED THRESHOLDS FOR 512MB RENDER FREE TIER
+# With 1 worker, we have ~400MB available after OS overhead
+# Target: Keep worker under 200MB for safety margin
+MEMORY_THRESHOLD_MB = 180  # Trigger cleanup above this
+CRITICAL_MEMORY_MB = 150   # Aggressive cleanup at 150MB
 EMERGENCY_MEMORY_MB = 100  # Log warning at 100MB
 
 

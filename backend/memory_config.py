@@ -9,39 +9,39 @@ import os
 IS_RENDER = os.environ.get('RENDER') == 'true'
 MEMORY_CONSTRAINT = os.environ.get('MEMORY_CONSTRAINT', '512MB')
 
-# For 512MB: aggressive memory management
-if MEMORY_CONSTRAINT == '512MB':
+# For 512MB: aggressive memory management (also auto-detect Render)
+if MEMORY_CONSTRAINT == '512MB' or IS_RENDER:
     # PhishTank caching disabled (too much memory)
     PHISHTANK_CACHE_ENABLED = False
     PHISHTANK_UPDATE_INTERVAL = None  # Don't auto-update
     
     # Request pooling (minimal overhead)
-    REQUEST_POOL_SIZE = 2  # Only 2 concurrent requests
+    REQUEST_POOL_SIZE = 1  # Single request at a time
     
     # Model prediction settings
     BATCH_SIZE = 1  # Process URLs one at a time
     
-    # Memory thresholds
-    MAX_MEMORY_MB = 450  # Hard limit (512 - overhead)
-    CLEANUP_THRESHOLD_MB = 400  # Cleanup if exceeds this
+    # Memory thresholds - AGGRESSIVE FOR 512MB
+    MAX_MEMORY_MB = 350  # Hard limit (512 - OS - safety margin)
+    CLEANUP_THRESHOLD_MB = 200  # Cleanup if exceeds this
+    CRITICAL_MEMORY_MB = 250  # Reject new requests above this
     
     # Disable expensive features
     ADVANCED_THREAT_DETECTION = False  # Too memory intensive
     SSL_VERIFICATION_DETAILED = False  # Reduced SSL checks
     
-    # Timeouts
+    # Timeouts - shorter for faster cleanup
     REQUEST_TIMEOUT = 5  # Shorter timeout
-    MODEL_INFERENCE_TIMEOUT = 30  # Fast inference or kill
+    MODEL_INFERENCE_TIMEOUT = 20  # Fast inference or kill
     
     # Capacity settings
-    # With cleanup_memory() after each request, can handle 500+ safely
-    MAX_PREDICTIONS_PER_HOUR = 1000  # ~1000 predictions per hour safely
+    MAX_PREDICTIONS_PER_HOUR = 500  # Conservative for stability
+    MAX_CONCURRENT_REQUESTS = 1  # Serial processing only
     
-    print("[!] 512MB Memory Optimization Mode Enabled")
-    print("    - PhishTank caching DISABLED")
-    print("    - Advanced threat detection DISABLED")
-    print("    - Serial request processing (no concurrency)")
-    print("    - Capacity: ~1000 predictions/hour safely")
+    print("[!] 512MB RENDER OPTIMIZATION MODE")
+    print("    - Single worker, serial processing")
+    print("    - Memory limit: 350MB, cleanup at 200MB")
+    print("    - PhishTank/advanced features DISABLED")
     
 else:
     # Standard configuration (higher memory)

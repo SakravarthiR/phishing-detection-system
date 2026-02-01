@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="professional.css">
 </head>
 <body>
-    <script src="session-manager.js"></script>
     <div class="parallax-bg"></div>
     <div class="cursor-circle"></div>
     <div class="container">
@@ -49,11 +48,14 @@
                     <label for="urlInput" class="input-label">Enter URL to Check:</label>
                     <div class="input-group">
                         <input 
-                            type="text" 
+                            type="url" 
                             id="urlInput" 
                             class="url-input" 
                             placeholder="https://example.com"
                             autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
                         >
                         <button id="checkBtn" class="check-btn ui button">
                             <span id="btnText" class="btn-text-content">Check URL</span>
@@ -114,28 +116,28 @@
                         <h3 class="status-title">Website Status Check</h3>
                         <div class="status-grid">
                             <div class="status-item">
-                                <span class="status-icon" id="reachableIcon">●</span>
+                                <span class="status-icon" id="reachableIcon">[O]</span>
                                 <div class="status-info">
                                     <span class="status-label">Status</span>
                                     <span class="status-value" id="reachableStatus">Checking...</span>
                                 </div>
                             </div>
                             <div class="status-item">
-                                <span class="status-icon">⏱</span>
+                                <span class="status-icon">[T]</span>
                                 <div class="status-info">
                                     <span class="status-label">Response Time</span>
                                     <span class="status-value" id="responseTime">--</span>
                                 </div>
                             </div>
                             <div class="status-item">
-                                <span class="status-icon">🔒</span>
+                               
                                 <div class="status-info">
                                     <span class="status-label">SSL Certificate</span>
                                     <span class="status-value" id="sslStatus">--</span>
                                 </div>
                             </div>
                             <div class="status-item">
-                                <span class="status-icon">📊</span>
+                                
                                 <div class="status-info">
                                     <span class="status-label">HTTP Status</span>
                                     <span class="status-value" id="httpStatus">--</span>
@@ -159,7 +161,7 @@
                         <!-- Summary Cards -->
                         <div class="scan-summary-cards">
                             <div class="scan-card primary">
-                                <div class="scan-card-icon">●</div>
+                                <div class="scan-card-icon">[*]</div>
                                 <div class="scan-card-content">
                                     <div class="scan-card-label">Domain Scanned</div>
                                     <div class="scan-card-value" id="scannedDomain">--</div>
@@ -167,7 +169,7 @@
                             </div>
                             
                             <div class="scan-card success">
-                                <div class="scan-card-icon">✓</div>
+                                <div class="scan-card-icon">[+]</div>
                                 <div class="scan-card-content">
                                     <div class="scan-card-label">Total Subdomains</div>
                                     <div class="scan-card-value" id="totalSubdomains">--</div>
@@ -175,7 +177,7 @@
                             </div>
                             
                             <div class="scan-card info">
-                                <div class="scan-card-icon">�</div>
+                                <div class="scan-card-icon">[#]</div>
                                 <div class="scan-card-content">
                                     <div class="scan-card-label">Most Used IP</div>
                                     <div class="scan-card-value" id="mostUsedIpAddress">--</div>
@@ -184,7 +186,7 @@
                             </div>
                             
                             <div class="scan-card warning">
-                                <div class="scan-card-icon">→</div>
+                                <div class="scan-card-icon">[>]</div>
                                 <div class="scan-card-content">
                                     <div class="scan-card-label">Unique IPs</div>
                                     <div class="scan-card-value" id="uniqueIpCount">--</div>
@@ -238,7 +240,7 @@
 
                         <!-- Character Analysis -->
                         <div class="feature-category">
-                            <h4 class="category-title">🔤 Character Analysis</h4>
+                            <h4 class="category-title">Character Analysis</h4>
                             <div id="characterFeatures" class="features-container">
                                 <!-- Populated by JS -->
                             </div>
@@ -266,7 +268,7 @@
             <!-- Error Section -->
             <div id="errorSection" class="error-section hidden">
                 <div class="card error-card">
-                    <div class="error-icon">⚠</div>
+                    <div class="error-icon">[X]</div>
                     <h3 class="error-title">Error</h3>
                     <p id="errorMessage" class="error-message"></p>
                     <button id="dismissError" class="dismiss-btn">Dismiss</button>
@@ -275,19 +277,19 @@
 
             <!-- Info Section -->
             <div class="info-section card">
-                <h3>(%) About This Tool</h3>
+                <h3>[?] About This Tool</h3>
                 <p>This tool uses machine learning with <strong>37 advanced features</strong> to analyze URLs and detect potential phishing attempts.</p>
                 <ul class="info-list">
-                    <li>[Real-time analysis with ML mode]</li>
-                    <li>[RFC-compliant IPv4 & IPv6 detection]</li>
-                    <li>[Punycode/IDN homograph attack detection]</li>
-                    <li>[Brand typosquatting identification]</li>
-                    <li>[URL shortener & suspicious TLD detection]</li>
-                    <li>[Hex encoding & obfuscation analysis]</li>
-                    <li>[Shannon entropy calculation]</li>
-                    <li>[Port & subdomain analysis]</li>
+                    <li>[+] Real-time analysis with ML mode</li>
+                    <li>[+] RFC-compliant IPv4 & IPv6 detection</li>
+                    <li>[+] Punycode/IDN homograph attack detection</li>
+                    <li>[+] Brand typosquatting identification</li>
+                    <li>[+] URL shortener & suspicious TLD detection</li>
+                    <li>[+] Hex encoding & obfuscation analysis</li>
+                    <li>[+] Shannon entropy calculation</li>
+                    <li>[+] Port & subdomain analysis</li>
                 </ul>
-                <p class="warning"> <strong>Note:</strong> This is a demonstration tool. Always exercise caution with suspicious links.</p>
+                <p class="warning"> <strong>[!] Note:</strong> This is a demonstration tool. Always exercise caution with suspicious links.</p>
             </div>
             </div>
 
@@ -295,7 +297,7 @@
             <aside class="scan-history-sidebar-main">
                 <div class="history-header">
                     <h3 class="history-title">
-                        <span class="history-icon">📋</span>
+                        <span class="history-icon">[#]</span>
                         Recent Scans
                     </h3>
                     <button id="clearHistoryBtn" class="clear-history-btn delete-btn-animated" title="Clear History">
@@ -344,6 +346,7 @@
     </div>
 
     <!-- JavaScript -->
+    <script src="session-manager.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

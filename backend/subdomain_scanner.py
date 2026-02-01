@@ -226,21 +226,24 @@ class SubdomainScanner:
         except:
             return None
     
+    # Pre-compiled Cloudflare prefixes for O(1) lookup
+    _CLOUDFLARE_PREFIXES = frozenset([
+        '173.245.', '103.21.', '103.22.', '103.31.', '141.101.', '108.162.',
+        '190.93.', '188.114.', '197.234.', '198.41.', '162.158.', '104.16.',
+        '104.17.', '104.18.', '104.19.', '104.20.', '104.21.', '104.22.',
+        '104.23.', '104.24.', '104.25.', '104.26.', '104.27.', '104.28.',
+        '172.64.', '172.65.', '172.66.', '172.67.', '172.68.', '172.69.',
+    ])
+    
     def check_cloudflare(self, ip):
-        """Check if IP belongs to Cloudflare"""
-        # Cloudflare IP ranges (simplified)
-        cloudflare_ranges = [
-            '173.245.', '103.21.', '103.22.', '103.31.', '141.101.', '108.162.',
-            '190.93.', '188.114.', '197.234.', '198.41.', '162.158.', '104.16.',
-            '104.17.', '104.18.', '104.19.', '104.20.', '104.21.', '104.22.',
-            '104.23.', '104.24.', '104.25.', '104.26.', '104.27.', '104.28.',
-            '172.64.', '172.65.', '172.66.', '172.67.', '172.68.', '172.69.',
-        ]
-        
-        if ip:
-            for cf_range in cloudflare_ranges:
-                if ip.startswith(cf_range):
-                    return True
+        """Check if IP belongs to Cloudflare - O(1) lookup"""
+        if not ip:
+            return False
+        # Get first two octets as prefix for O(1) set lookup
+        parts = ip.split('.')
+        if len(parts) >= 2:
+            prefix = f"{parts[0]}.{parts[1]}."
+            return prefix in self._CLOUDFLARE_PREFIXES
         return False
     
     def check_subdomain_exists(self, subdomain, base_domain):

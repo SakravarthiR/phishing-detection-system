@@ -777,6 +777,7 @@ function updateScanHistoryDisplay() {
         const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
         const historyTableBody = document.getElementById('historyTableBody');
         const historyTableContainer = document.querySelector('.history-table-container-scanner');
+        const historySidebar = document.querySelector('.scan-history-sidebar-main');
         
         if (!historyTableBody) return;
         
@@ -788,17 +789,17 @@ function updateScanHistoryDisplay() {
         const emptyState = historyList ? historyList.querySelector('.history-empty') : null;
         
         if (history.length === 0) {
-            // Show empty state and hide table container
-            if (emptyState) {
-                emptyState.style.display = 'block';
-            }
-            if (historyTableContainer) {
-                historyTableContainer.style.display = 'none';
+            // Hide entire sidebar when no history
+            if (historySidebar) {
+                historySidebar.style.display = 'none';
             }
             return;
         }
         
-        // Hide empty state and show table container
+        // Show sidebar and hide empty state when history exists
+        if (historySidebar) {
+            historySidebar.style.display = 'block';
+        }
         if (emptyState) {
             emptyState.style.display = 'none';
         }

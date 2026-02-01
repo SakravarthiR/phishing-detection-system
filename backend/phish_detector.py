@@ -48,6 +48,39 @@ ensemble.RandomForestClassifier.__setstate__ = patched_rf_setstate
 
 print("[+] sklearn __setstate__ patches applied at import")
 
+# ============================================================================
+# PRE-COMPILED REGEX PATTERNS - TIME COMPLEXITY OPTIMIZATION O(n) vs O(n*m)
+# ============================================================================
+
+# Suspicious keywords pattern - single regex for O(m) instead of O(n*m)
+_SUSPICIOUS_KEYWORDS = (
+    'login', 'verify', 'account', 'update', 'secure', 'banking', 'signin',
+    'confirm', 'suspend', 'restrict', 'alert', 'unlock', 'validate',
+    'credential', 'password', 'paypal', 'ebay', 'amazon', 'apple',
+    'microsoft', 'wallet', 'billing', 'payment', 'webscr'
+)
+_SUSPICIOUS_KEYWORDS_PATTERN = re.compile(
+    r'(' + '|'.join(_SUSPICIOUS_KEYWORDS) + r')',
+    re.IGNORECASE
+)
+
+# Suspicious TLDs as frozenset for O(1) lookup
+_SUSPICIOUS_TLDS = frozenset(['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.work', '.click', '.link', '.zip'])
+
+# URL shortening services as frozenset for O(1) lookup
+_SHORTENING_SERVICES = frozenset([
+    'bit.ly', 'goo.gl', 'tinyurl.com', 't.co', 'ow.ly', 'is.gd',
+    'buff.ly', 'adf.ly', 'bit.do', 'short.io', 'rebrand.ly', 'cutt.ly'
+])
+
+# Pre-compiled regex patterns
+_IP_PATTERN = re.compile(r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}')
+_IPV6_PATTERN = re.compile(r'\[?[0-9a-fA-F:]+\]?')
+_DOMAIN_PATTERN = re.compile(r'(?:https?://)?(?:www\.)?([^/:?#]+)')
+_PATH_PATTERN = re.compile(r'(?:https?://[^/]+)(/[^?#]*)?')
+_PORT_PATTERN = re.compile(r':(\d{2,5})(?:/|$)')
+_HEX_PATTERN = re.compile(r'%[0-9a-fA-F]{2}')
+
 # Global model cache to prevent reloading (memory efficient)
 _MODEL_CACHE = {
     'model': None,
@@ -311,23 +344,18 @@ def extract_features(url: str) -> pd.DataFrame:
     # 5. Check for @ symbol (URL obfuscation technique)
     features['has_at_symbol'] = 1 if '@' in url else 0
     
-    # 6. Advanced suspicious keyword detection (case-insensitive with word boundaries)
-    suspicious_keywords = [
-        'login', 'verify', 'account', 'update', 'secure', 'banking', 'signin', 
-        'confirm', 'suspend', 'restrict', 'alert', 'unlock', 'validate', 
-        'credential', 'password', 'paypal', 'ebay', 'amazon', 'apple', 
-        'microsoft', 'wallet', 'billing', 'payment', 'webscr'
-    ]
-    features['has_suspicious_keyword'] = 1 if any(kw in url_lower for kw in suspicious_keywords) else 0
+    # 6. Advanced suspicious keyword detection using pre-compiled regex - O(m) time
+    keyword_matches = _SUSPICIOUS_KEYWORDS_PATTERN.findall(url_lower)
+    features['has_suspicious_keyword'] = 1 if keyword_matches else 0
     
-    # 7. Count occurrences of suspicious keywords
-    features['suspicious_keyword_count'] = sum(url_lower.count(kw) for kw in suspicious_keywords)
+    # 7. Count occurrences of suspicious keywords - already found in step 6
+    features['suspicious_keyword_count'] = len(keyword_matches)
     
     # 8. Protocol detection (HTTPS vs HTTP)
     features['is_https'] = 1 if url_lower.startswith('https://') else 0
     
-    # 9. Extract and analyze domain components
-    domain_match = re.search(r'(?:https?://)?(?:www\.)?([^/:?#]+)', url_lower)
+    # 9. Extract and analyze domain components using pre-compiled pattern
+    domain_match = _DOMAIN_PATTERN.search(url_lower)
     if domain_match:
         domain = domain_match.group(1)
         features['domain_length'] = len(domain)
@@ -337,9 +365,8 @@ def extract_features(url: str) -> pd.DataFrame:
         # Typical domain has 2 parts (domain.tld), anything more is subdomains
         features['num_subdomains'] = max(0, len(domain_parts) - 2)
         
-        # Check for suspicious TLDs
-        suspicious_tlds = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', '.work', '.click', '.link', '.zip']
-        features['suspicious_tld'] = 1 if any(domain.endswith(tld) for tld in suspicious_tlds) else 0
+        # Check for suspicious TLDs using frozenset O(1) lookup
+        features['suspicious_tld'] = 1 if any(domain.endswith(tld) for tld in _SUSPICIOUS_TLDS) else 0
         
         # Domain has only digits (highly suspicious)
         features['domain_all_digits'] = 1 if domain.replace('.', '').isdigit() else 0
@@ -349,8 +376,8 @@ def extract_features(url: str) -> pd.DataFrame:
         features['suspicious_tld'] = 0
         features['domain_all_digits'] = 0
     
-    # 10. Extract path and query components
-    path_match = re.search(r'(?:https?://[^/]+)(/[^?#]*)?', url)
+    # 10. Extract path and query components using pre-compiled pattern
+    path_match = _PATH_PATTERN.search(url)
     if path_match and path_match.group(1):
         path = path_match.group(1)
         features['path_length'] = len(path)
@@ -360,8 +387,8 @@ def extract_features(url: str) -> pd.DataFrame:
         features['path_depth'] = 0
     
     # 11. Port detection (non-standard ports are suspicious)
-    port_pattern = r':(\d{2,5})(?:/|$)'
-    port_match = re.search(port_pattern, url)
+    # 11. Port detection using pre-compiled pattern
+    port_match = _PORT_PATTERN.search(url)
     if port_match:
         port = int(port_match.group(1))
         # Standard ports: 80 (HTTP), 443 (HTTPS), 8080 (HTTP alt)
@@ -379,16 +406,11 @@ def extract_features(url: str) -> pd.DataFrame:
     else:
         features['has_double_slash_in_path'] = 0
     
-    # 13. URL shortening services detection
-    shortening_services = [
-        'bit.ly', 'goo.gl', 'tinyurl.com', 't.co', 'ow.ly', 'is.gd', 
-        'buff.ly', 'adf.ly', 'bit.do', 'short.io', 'rebrand.ly', 'cutt.ly'
-    ]
-    features['has_shortening_service'] = 1 if any(service in url_lower for service in shortening_services) else 0
+    # 13. URL shortening services detection using frozenset O(1) lookup
+    features['has_shortening_service'] = 1 if any(service in url_lower for service in _SHORTENING_SERVICES) else 0
     
-    # 14. Hexadecimal/URL encoding detection (obfuscation)
-    hex_pattern = r'%[0-9a-fA-F]{2}'
-    hex_matches = re.findall(hex_pattern, url)
+    # 14. Hexadecimal/URL encoding detection using pre-compiled pattern
+    hex_matches = _HEX_PATTERN.findall(url)
     features['has_hex_chars'] = 1 if hex_matches else 0
     features['hex_char_count'] = len(hex_matches)
     
