@@ -907,7 +907,11 @@ def predict():
     """
     # Handle CORS preflight
     if request.method == 'OPTIONS':
-        return '', 200
+        response = app.make_default_options_response()
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+        return response
     
     try:
         # Check if model is loaded
