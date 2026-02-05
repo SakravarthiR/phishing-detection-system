@@ -296,6 +296,10 @@ async function scanSubdomains(domain) {
             console.error('[!] Request timeout');
             throw new Error('Scan took too long (2 minutes) - probably a huge domain with tons of subdomains');
         }
+        // Handle network errors
+        if (error.message === 'Failed to fetch') {
+            throw new Error('Network error - check your connection or try again');
+        }
         console.error('[!] Scan error:', error.message);
         throw error;
     }

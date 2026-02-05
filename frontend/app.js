@@ -202,7 +202,7 @@ function getAPIURL() {
 }
 
 const API_BASE_URL = getAPIURL();
-const REQUEST_TIMEOUT = 30000; // 30 seconds
+const REQUEST_TIMEOUT = 60000; // 60 seconds for Render cold start
 const USE_SECURE_API = true; // Use JWT authentication
 
 // OPTIMIZED FOR 50 CONCURRENT USERS
@@ -482,6 +482,10 @@ async function checkPhishing(url) {
         console.error('Exception caught:', error.name, error.message);
         if (error.name === 'AbortError') {
             throw new Error('Request took too long - please try again');
+        }
+        // Handle network errors (Failed to fetch)
+        if (error.message === 'Failed to fetch') {
+            throw new Error('Network error - check your connection or try again in a moment');
         }
         throw error;
     }
