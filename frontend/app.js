@@ -474,9 +474,21 @@ async function checkPhishing(url) {
             throw new Error(errorMsg);
         }
         
-        const data = await response.json();
-        console.log('[+] API Response received:', data);
-        return data;
+        // Only parse as JSON if there is content
+        let data = null;
+        const text = await response.text();
+        if (text && text.trim().length > 0) {
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error('Failed to parse JSON:', e, text);
+                throw new Error('Invalid JSON response from server');
+            }
+            console.log('[+] API Response received:', data);
+            return data;
+        } else {
+            throw new Error('Empty response from server');
+        }
         
     } catch (error) {
         console.error('Exception caught:', error.name, error.message);
