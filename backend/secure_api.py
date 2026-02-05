@@ -188,17 +188,6 @@ FRONTEND_URL = ''  # Empty for same-origin
 
 @app.route('/')
 def serve_index():
-    """API root - redirect to frontend"""
-    return jsonify({
-        'status': 'online',
-        'service': 'Phishing Detection API',
-        'frontend': FRONTEND_URL,
-        'message': 'This is the API server. Visit the frontend for the web interface.',
-        'endpoints': ['/login', '/predict', '/health', '/scan-subdomains']
-    })
-
-@app.route('/')
-def serve_index():
     """Serve the main index page"""
     from flask import send_from_directory
     return send_from_directory(app.static_folder, 'index.html')
