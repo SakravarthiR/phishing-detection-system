@@ -422,22 +422,16 @@ async function checkPhishing(url) {
             'Content-Type': 'application/json',
         };
         
-        // Check if we have a valid token
-        const token = getAuthToken();
-        let endpoint = '/predict';
-        
-        if (USE_SECURE_API && token) {
-            // Use protected endpoint with auth
-            headers['Authorization'] = `Bearer ${token}`;
-            console.log('[AUTH] Using protected /predict endpoint');
-        } else {
-            // Use public endpoint (rate limited, no auth)
-            endpoint = '/public/scan';
-            console.log('[PUBLIC] Using public /public/scan endpoint');
+        // Add JWT token if using secure API
+        if (USE_SECURE_API) {
+            const token = getAuthToken();
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
         }
         
         // Use queuedFetch for connection pooling with 50 concurrent users
-        const response = await queuedFetch(`${API_BASE_URL}${endpoint}`, {
+        const response = await queuedFetch(`${API_BASE_URL}/predict`, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify({ url: url }),
@@ -448,23 +442,11 @@ async function checkPhishing(url) {
         
         console.log('[RESPONSE] Status:', response.status, '| Active requests:', activeRequests);
         
-        // If auth fails on protected endpoint, try public endpoint
-        if (response.status === 401) {
-            console.warn('Auth failed, trying public endpoint...');
-            const publicResponse = await queuedFetch(`${API_BASE_URL}/public/scan`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: url }),
-                signal: controller.signal
-            });
-            
-            if (publicResponse.ok) {
-                return await publicResponse.json();
-            }
-            // Still failed, redirect to login
+        // If auth fails, redirect to login
+        if (response.status === 401 && USE_SECURE_API) {
+            console.warn('Token expired - back to login');
             window.location.href = 'secure-auth-portal.html';
-            return null;
-        }
+            return null;  // Stop execution after redirect
         }
         
         if (!response.ok) {
@@ -509,37 +491,28 @@ async function checkPhishing(url) {
  * Display the phishing analysis results
  */
 function displayResults(data) {
-    // Handle both full and simplified (public) response formats
-    const isPhishing = data.is_phishing || data.label === 1 || data.prediction === 'phishing';
-    const riskScore = data.risk_score || data.confidence_percent || Math.round((data.probability || 0) * 100);
+    // Set result status
+    const isPhishing = data.label === 1 || data.prediction === 'phishing';
+    const confidence = data.confidence_percent || Math.round((data.probability || 0) * 100);
     
     // Ensure confidence is between 0-100
-    const displayConfidence = Math.max(0, Math.min(100, riskScore));
+    const displayConfidence = Math.max(0, Math.min(100, confidence));
     
-    // Use professional risk assessment if available, or build from public response
+    // Use professional risk assessment if available
     const riskData = data.risk_assessment || {};
-    const riskLevel = data.risk_level || riskData.risk_level || (isPhishing ? 'HIGH' : 'LOW');
-    const riskCategory = riskData.risk_category || (isPhishing ? 'Potential Phishing' : 'Appears Safe');
-    const riskDescription = riskData.description || data.recommendation || 'Analysis completed';
+    const riskLevel = riskData.risk_level || 'UNKNOWN';
+    const riskCategory = riskData.risk_category || 'Analysis Pending';
+    const riskDescription = riskData.description || 'Analysis completed';
     const riskDetails = riskData.details || '';
-    const riskRecommendation = data.recommendation || riskData.recommendation || '';
-    
-    // Determine color based on risk level
-    let riskColor = riskData.color || '#666666';
-    if (!riskData.color) {
-        if (riskLevel.includes('CRITICAL')) riskColor = '#dc2626';
-        else if (riskLevel.includes('HIGH')) riskColor = '#ea580c';
-        else if (riskLevel.includes('MEDIUM')) riskColor = '#d97706';
-        else if (riskLevel.includes('LOW')) riskColor = '#65a30d';
-        else riskColor = isPhishing ? '#dc2626' : '#16a34a';
-    }
+    const riskRecommendation = riskData.recommendation || '';
+    const riskColor = riskData.color || '#666666';
     
     // Update card appearance with professional colors
     resultHeader.style.borderLeftColor = riskColor;
-    resultIcon.textContent = riskLevel.includes('CRITICAL') ? '🚨' : 
-                              riskLevel.includes('HIGH') ? '⚠️' :
-                              riskLevel.includes('MEDIUM') ? '⚠️' :
-                              riskLevel.includes('LOW') ? '✓' :
+    resultIcon.textContent = riskData.risk_level && riskData.risk_level.includes('CRITICAL') ? '🚨' : 
+                              riskData.risk_level && riskData.risk_level.includes('HIGH') ? '⚠️' :
+                              riskData.risk_level && riskData.risk_level.includes('MEDIUM') ? '⚠️' :
+                              riskData.risk_level && riskData.risk_level.includes('LOW') ? '✓' :
                               isPhishing ? '🚨' : '✅';
     
     // Professional title
@@ -566,7 +539,7 @@ function displayResults(data) {
     }
     
     // Set detailed reason
-    resultReason.textContent = riskDetails || riskRecommendation || data.reason || 'Analysis completed. URL appears to be legitimate based on available intelligence.';
+    resultReason.textContent = riskDetails || data.reason || 'Analysis completed. URL appears to be legitimate based on available intelligence.';
     
     // Clear threat indicators
     threatIndicators.innerHTML = '';

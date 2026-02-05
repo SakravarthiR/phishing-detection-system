@@ -9,7 +9,7 @@ import logging
 import ipaddress
 import secrets
 
-# Optional redis import
+# Optional redis import (not available on Render free tier)
 try:
     import redis
     REDIS_AVAILABLE = True
@@ -35,11 +35,11 @@ if REDIS_AVAILABLE:
         USE_REDIS = True
         logger.info("Redis session store connected")
     except Exception as e:
-        logger.warning(f"Redis not available: {e} - Using in-memory store")
+        logger.warning(f"Redis connection failed: {e} - Using in-memory store")
         REDIS_CLIENT = None
         USE_REDIS = False
 else:
-    logger.info("Redis module not installed - Using in-memory store")
+    logger.info("Redis not installed - Using in-memory session store")
 
 DEVICE_IP_WHITELIST = set()
 WHITELISTED_DEVICES = {}

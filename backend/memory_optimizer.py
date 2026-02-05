@@ -14,11 +14,11 @@ from typing import Any, Callable
 logger = logging.getLogger(__name__)
 
 # OPTIMIZED THRESHOLDS FOR 512MB RENDER FREE TIER
-# With 1 worker, we have ~400MB available after OS overhead
-# Target: Keep worker under 200MB for safety margin
-MEMORY_THRESHOLD_MB = 180  # Trigger cleanup above this
-CRITICAL_MEMORY_MB = 150   # Aggressive cleanup at 150MB
-EMERGENCY_MEMORY_MB = 100  # Log warning at 100MB
+# With 1 worker + ML libs, we use ~400MB at startup
+# Target: Keep worker under 450MB for safety margin
+MEMORY_THRESHOLD_MB = 400  # Trigger cleanup above this
+CRITICAL_MEMORY_MB = 420   # Aggressive cleanup at 420MB
+EMERGENCY_MEMORY_MB = 450  # Log warning at 450MB
 
 
 def get_memory_usage() -> float:
@@ -102,15 +102,8 @@ def reduce_dataframe_memory(df):
     """
     Reduce pandas DataFrame memory usage by optimizing dtypes
     This can reduce DataFrame size by 50% or more
-    
-    NOTE: Only works if pandas/numpy are installed
     """
-    try:
-        import pandas as pd
-        import numpy as np
-    except ImportError:
-        # pandas/numpy not available (lite mode)
-        return df
+    import pandas as pd
     
     for col in df.columns:
         col_type = df[col].dtype

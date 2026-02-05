@@ -54,19 +54,18 @@ fi
 log_info "Verifying critical packages..."
 python -c "import flask; print(f'Flask {flask.__version__}')" || (log_error "Flask not installed"; exit 1)
 python -c "import gunicorn; print(f'Gunicorn installed')" || (log_error "Gunicorn not installed"; exit 1)
-# Note: Using lite detector - sklearn not required for 512MB RAM mode
-log_info "Using LITE detector (no sklearn required)"
+python -c "import sklearn; print(f'Scikit-learn {sklearn.__version__}')" || (log_error "Scikit-learn not installed"; exit 1)
 
 # Check if backend files exist
 log_info "Verifying backend files..."
 [ -f "backend/secure_api.py" ] && log_info "✓ secure_api.py found" || (log_error "secure_api.py not found"; exit 1)
-[ -f "backend/phish_detector_lite.py" ] && log_info "✓ phish_detector_lite.py found" || (log_error "phish_detector_lite.py not found"; exit 1)
+[ -f "backend/phish_detector.py" ] && log_info "✓ phish_detector.py found" || (log_error "phish_detector.py not found"; exit 1)
 [ -f "backend/gunicorn_config.py" ] && log_info "✓ gunicorn_config.py found" || (log_error "gunicorn_config.py not found"; exit 1)
 
 # Syntax check Python files
 log_info "Checking Python syntax..."
 python -m py_compile backend/secure_api.py || (log_error "Syntax error in secure_api.py"; exit 1)
-python -m py_compile backend/phish_detector_lite.py || (log_error "Syntax error in phish_detector_lite.py"; exit 1)
+python -m py_compile backend/phish_detector.py || (log_error "Syntax error in phish_detector.py"; exit 1)
 log_info "✓ All Python files have valid syntax"
 
 # Verify frontend files exist
@@ -80,7 +79,7 @@ log_info "Verifying frontend files..."
 log_info "Running final validation..."
 cd backend
 python -c "
-from phish_detector_lite import load_model, extract_features
+from phish_detector import load_model, extract_features
 from security_utils import logger
 print('[✓] Core modules import successfully')
 " || (log_error "Failed to import core modules"; exit 1)

@@ -8,7 +8,7 @@ PyJWT==2.8.0
 bcrypt==4.1.2
 cryptography==41.0.7
 
-# Session Storage & Caching (optional - comment out if not using Redis)
+# Session Storage & Caching (optional - comment out for 512MB tier)
 # redis==5.0.0
 
 # Network & URL Processing
@@ -23,12 +23,11 @@ certifi==2024.2.2
 # Memory Management
 psutil==5.9.6
 
-# ML Libraries - DISABLED for 512MB free tier
-# Uncomment below if you have 1GB+ RAM
-# scikit-learn==1.5.2
-# pandas==2.2.3
-# joblib==1.4.2
-# numpy==2.0.2
+# Machine Learning
+scikit-learn==1.5.2
+pandas==2.2.3
+joblib==1.4.2
+numpy==2.0.2
 
 # Utilities
 python-dateutil==2.8.2
