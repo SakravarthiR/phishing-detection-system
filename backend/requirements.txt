@@ -23,9 +23,10 @@ certifi==2024.2.2
 # Memory Management
 psutil==5.9.6
 
-# Machine Learning
+# Machine Learning - OPTIMIZED for 350MB
+# Using numpy instead of pandas saves ~100MB RAM
 scikit-learn==1.5.2
-pandas==2.2.3
+# pandas==2.2.3  # REMOVED - saves ~100MB, using numpy arrays instead
 joblib==1.4.2
 numpy==2.0.2
 
