@@ -111,7 +111,10 @@ def create_session_with_pool():
 
 REQUESTS_SESSION = create_session_with_pool()
 
-app = Flask(__name__)
+import os
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
+
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 app.config.from_object(SecurityConfig)
 
 try:
@@ -179,7 +182,8 @@ logger.info("IP Session Security initialized")
 
 initialize_model()
 
-FRONTEND_URL = 'https://phishingdetector.systems'
+# Frontend served from same Render deployment
+FRONTEND_URL = ''  # Empty for same-origin
 
 
 @app.route('/')
@@ -193,13 +197,19 @@ def serve_index():
         'endpoints': ['/login', '/predict', '/health', '/scan-subdomains']
     })
 
+@app.route('/')
+def serve_index():
+    """Serve the main index page"""
+    from flask import send_from_directory
+    return send_from_directory(app.static_folder, 'index.html')
+
 @app.route('/<path:filename>')
 def serve_static(filename):
-    """Redirect static file requests to frontend"""
-    if filename.endswith(('.html', '.css', '.js', '.png', '.jpg', '.ico')):
-        from flask import redirect
-        return redirect(f'{FRONTEND_URL}/{filename}', code=302)
-    return jsonify({'error': 'Not found', 'frontend': FRONTEND_URL}), 404
+    """Serve static files from frontend folder"""
+    from flask import send_from_directory
+    if os.path.exists(os.path.join(app.static_folder, filename)):
+        return send_from_directory(app.static_folder, filename)
+    return jsonify({'error': 'Not found'}), 404
 
 @app.before_request
 def security_checks():

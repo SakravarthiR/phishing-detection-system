@@ -114,8 +114,8 @@ function getAPIURL() {
         return 'http://localhost:5000';
     }
     
-    // Production deployment
-    return 'https://phishing-detection-system-1.onrender.com';
+    // Production: same-origin (empty for relative URLs)
+    return '';
 }
 
 const API_BASE_URL = getAPIURL();

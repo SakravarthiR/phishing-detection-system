@@ -9,7 +9,7 @@ function getAPIURL() {
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
         return 'http://127.0.0.1:5000';
     }
-    return 'https://phishing-detection-system-1.onrender.com';
+    return '';  // Same-origin in production
 }
 
 function throttle(func, limit) {

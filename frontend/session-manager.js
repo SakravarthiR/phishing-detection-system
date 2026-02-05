@@ -16,8 +16,8 @@ function getAPIURL() {
         return 'http://localhost:5000';
     }
     
-    // Production
-    return 'https://phishing-detection-system-1.onrender.com';
+    // Production: same-origin
+    return '';
 }
 
 /**
