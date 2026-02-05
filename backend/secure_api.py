@@ -876,14 +876,16 @@ def phishtank_update():
             'message': 'An error occurred during update'
         }), 500
 
-@app.route('/predict', methods=['POST'])
-@require_auth
+@app.route('/predict', methods=['POST', 'OPTIONS'])
 @limiter.limit("30 per minute")
 def predict():
     """
-    Predict whether a URL is phishing or legitimate (PROTECTED)
+    Predict whether a URL is phishing or legitimate
     
-    Headers:
+    For authenticated users: Full features with higher rate limits
+    For anonymous users: Basic scan with rate limiting
+    
+    Headers (optional):
         Authorization: Bearer <jwt_token>
     
     Request JSON:
@@ -903,6 +905,10 @@ def predict():
             "website_status": {...}
         }
     """
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+    
     try:
         # Check if model is loaded
         if not model_loaded or model is None:
@@ -1076,7 +1082,7 @@ def predict():
         }), 500
 
 
-@app.route('/scan-subdomains', methods=['POST'])
+@app.route('/scan-subdomains', methods=['POST', 'OPTIONS'])
 @require_auth
 @limiter.limit("30 per minute")
 def scan_subdomains():
