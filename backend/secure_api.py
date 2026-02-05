@@ -73,15 +73,29 @@ from good_security import (
     AuthSecurityConfig
 )
 
-# Import ML modules
-from phish_detector import (
-    load_model,
-    predict_url,
-    get_top_feature,
-    extract_subdomain_info,
-    check_website_live,
-    get_professional_risk_assessment
-)
+# Import detection modules - LITE version for 512MB RAM
+# Uses rule-based detection instead of ML (sklearn/pandas/numpy)
+try:
+    from phish_detector_lite import (
+        load_model,
+        predict_url,
+        get_top_feature,
+        extract_subdomain_info,
+        check_website_live,
+        get_professional_risk_assessment
+    )
+    print("[+] Using LITE detector (rule-based, low memory)")
+except ImportError:
+    # Fallback to ML version if lite not available
+    from phish_detector import (
+        load_model,
+        predict_url,
+        get_top_feature,
+        extract_subdomain_info,
+        check_website_live,
+        get_professional_risk_assessment
+    )
+    print("[!] Using ML detector (high memory)")
 
 from phishtank_integration import check_phishtank, get_phishtank_db
 from subdomain_scanner import SubdomainScanner

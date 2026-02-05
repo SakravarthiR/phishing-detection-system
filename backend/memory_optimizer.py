@@ -102,8 +102,15 @@ def reduce_dataframe_memory(df):
     """
     Reduce pandas DataFrame memory usage by optimizing dtypes
     This can reduce DataFrame size by 50% or more
+    
+    NOTE: Only works if pandas/numpy are installed
     """
-    import pandas as pd
+    try:
+        import pandas as pd
+        import numpy as np
+    except ImportError:
+        # pandas/numpy not available (lite mode)
+        return df
     
     for col in df.columns:
         col_type = df[col].dtype
