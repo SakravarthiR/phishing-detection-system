@@ -910,7 +910,8 @@ def predict():
         response.headers['Access-Control-Allow-Origin'] = '*'
         response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
-        return response
+        # Always return a minimal JSON body for frontend compatibility
+        return jsonify({"status": "ok"}), 200
     
     try:
         # Check if model is loaded
