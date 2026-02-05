@@ -396,6 +396,60 @@ def health_check():
     }), 200
 
 
+@app.route('/public/scan', methods=['POST', 'OPTIONS'])
+@limiter.limit("10 per minute")
+def public_scan():
+    """
+    Public URL scanning endpoint (no auth required, rate-limited)
+    
+    Request JSON:
+        {"url": "https://example.com"}
+    
+    Response JSON:
+        {"url": "...", "is_phishing": bool, "risk_level": "...", ...}
+    """
+    # Handle CORS preflight
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    try:
+        if not model_loaded:
+            return jsonify({'error': 'Service unavailable'}), 503
+        
+        if not request.is_json:
+            return jsonify({'error': 'JSON required'}), 400
+        
+        data = request.get_json()
+        url = data.get('url', '')
+        
+        if not url:
+            return jsonify({'error': 'URL required'}), 400
+        
+        # Validate URL
+        is_valid, sanitized_url, error = SecurityValidator.validate_url(url)
+        if not is_valid:
+            return jsonify({'error': error}), 400
+        
+        # Run prediction
+        label, probability, features = predict_url(sanitized_url, model)
+        
+        # Get risk assessment
+        risk_assessment = get_professional_risk_assessment(label, probability, features, sanitized_url)
+        
+        return jsonify({
+            'url': sanitized_url,
+            'is_phishing': label == 1,
+            'risk_level': risk_assessment.get('risk_level', 'UNKNOWN'),
+            'risk_score': round(probability * 100, 1),
+            'recommendation': risk_assessment.get('recommendation', ''),
+            'scanned_at': datetime.utcnow().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Public scan error: {e}")
+        return jsonify({'error': 'Scan failed'}), 500
+
+
 @app.route('/demo-login', methods=['POST'])
 def demo_login():
     """
