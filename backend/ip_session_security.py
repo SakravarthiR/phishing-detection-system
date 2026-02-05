@@ -7,26 +7,39 @@ from functools import wraps
 from flask import request, jsonify, g
 import logging
 import ipaddress
-import redis
 import secrets
+
+# Optional redis import
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
-try:
-    REDIS_CLIENT = redis.Redis(
-        host=os.getenv('REDIS_HOST', 'localhost'),
-        port=int(os.getenv('REDIS_PORT', 6379)),
-        db=int(os.getenv('REDIS_DB', 0)),
-        decode_responses=True
-    )
-    REDIS_CLIENT.ping()
-    USE_REDIS = True
-    logger.info("Redis session store connected")
-except Exception as e:
-    logger.warning(f"Redis not available: {e} - Using in-memory store")
-    REDIS_CLIENT = None
-    USE_REDIS = False
-    SESSION_STORE = {}
+# Initialize session storage
+REDIS_CLIENT = None
+USE_REDIS = False
+SESSION_STORE = {}
+
+if REDIS_AVAILABLE:
+    try:
+        REDIS_CLIENT = redis.Redis(
+            host=os.getenv('REDIS_HOST', 'localhost'),
+            port=int(os.getenv('REDIS_PORT', 6379)),
+            db=int(os.getenv('REDIS_DB', 0)),
+            decode_responses=True
+        )
+        REDIS_CLIENT.ping()
+        USE_REDIS = True
+        logger.info("Redis session store connected")
+    except Exception as e:
+        logger.warning(f"Redis not available: {e} - Using in-memory store")
+        REDIS_CLIENT = None
+        USE_REDIS = False
+else:
+    logger.info("Redis module not installed - Using in-memory store")
 
 DEVICE_IP_WHITELIST = set()
 WHITELISTED_DEVICES = {}
