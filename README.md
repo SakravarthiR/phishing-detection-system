@@ -110,34 +110,30 @@ The Phishing Detection System is a full-stack, production-grade platform for det
 
 ### Architecture Diagram
 
-<details>
-<summary>Click to expand Mermaid diagram (GitHub compatible)</summary>
 
-```mermaid
+
 flowchart TD
-	A[User (Browser)] -->|1. Submit URL| B[Frontend (HTML/JS)]
-	B -->|2. API Request (JWT)| C[Backend API (Flask)]
-	C -->|3. Auth & Security Checks| D[Security Middleware]
-	D -->|4. Threat Intel| E[PhishTank Integration]
-	D -->|5. Feature Extraction| F[Feature Extractor]
-	F -->|6. ML Prediction| G[Random Forest Model]
-	D -->|7. Heuristic Rules| H[Heuristic Engine]
-	G -->|8. Result| I[Result Aggregator]
-	H -->|8. Result| I
-	E -->|8. Result| I
-	I -->|9. Response| B
-	B -->|10. Display Result| A
-	C -->|Optional: Subdomain Scan| J[Subdomain Scanner]
-	J -->|Results| I
-	C -->|Memory Mgmt| K[Memory Optimizer]
-	D -->|DDoS/Rate Limiting| L[Advanced Security]
-```
+    A["User (Browser)"] -->|"1. Submit URL"| B["Frontend (HTML/JS"]
+    B -->|"2. API Request (JWT)"| C["Backend API (Flask)"]
+    C -->|"3. Auth & Security Checks"| D["Security Middleware"]
+    D -->|"4. Threat Intel"| E["PhishTank Integration"]
+    D -->|"5. Feature Extraction"| F["Feature Extractor"]
+    F -->|"6. ML Prediction"| G["Random Forest Model"]
+    D -->|"7. Heuristic Rules"| H["Heuristic Engine"]
+    G -->|"8. Result"| I["Result Aggregator"]
+    H -->|"8. Result"| I
+    E -->|"8. Result"| I
+    I -->|"9. Response"| B
+    B -->|"10. Display Result"| A
+    C -->|"Optional: Subdomain Scan"| J["Subdomain Scanner"]
+    J -->|"Results"| I
+    C -->|"Memory Mgmt"| K["Memory Optimizer"]
+    D -->|"DDoS/Rate Limiting"| L["Advanced Security"]
 
-</details>
 
-If the diagram does not render on GitHub, you can use any online Mermaid live editor (e.g. https://mermaid.live/) to visualize it, or refer to the following PNG (add your own image if needed):
+Use the structure ID to see the diagram in mermid
 
-![System Architecture Diagram](docs/architecture.png)
+![System Architecture Diagram](Downloads/PhishTank%20Security%20ML%20Flow-2026-02-09-045342.png)
 
 ### Data Flow
 1. User submits a URL via the frontend.
@@ -199,12 +195,35 @@ If the diagram does not render on GitHub, you can use any online Mermaid live ed
 	- Local cache for fast lookup
 	- If URL found, immediately flagged as phishing
 
+
 ### 4.5 Subdomain Scanning (`subdomain_scanner.py`)
-- **Techniques:**
-	- DNS A/CNAME/MX lookups
-	- SSL certificate transparency logs
-	- Brute-force with wordlists
-	- Cloudflare detection, zone transfer attempts
+
+#### What is the Subdomain Scanner?
+The Subdomain Scanner is a security tool that discovers all publicly accessible subdomains for a given domain. Attackers often use obscure or forgotten subdomains to host phishing pages or launch attacks. By mapping the subdomain surface, the system can:
+- Detect phishing or malicious subdomains related to a target domain
+- Identify shadow IT, misconfigurations, or forgotten assets
+- Help organizations secure their entire domain space
+
+#### How It Works
+The scanner uses multiple techniques:
+- **DNS Enumeration:** Queries DNS records (A, CNAME, MX, TXT, etc.) to find subdomains
+- **SSL Certificate Transparency Logs:** Extracts subdomains from public SSL/TLS certificates
+- **Brute-force:** Tries common subdomain names from a wordlist (e.g., mail, login, dev, admin)
+- **Zone Transfer Attempts:** Checks for misconfigured DNS servers that leak all subdomains
+- **Cloudflare/Proxy Detection:** Identifies if subdomains are protected or exposed
+
+#### Security Value
+- Uncovers hidden attack surfaces
+- Detects phishing infrastructure using subdomains
+- Supports red/blue team operations and asset management
+
+
+The results are returned via the `/api/subdomain-scan` endpoint and displayed in the frontend for user awareness and further investigation.
+
+#### Visual Flow (Image)
+If you prefer a visual diagram, see below:
+
+![Subdomain Scanner Architecture](Downloads/Untitled%20diagram-2026-02-09-045749.png)
 
 ### 4.6 Password & MFA Security (`good_security.py`)
 - **Password Strength:** Length, variety, uniqueness, blacklist check
