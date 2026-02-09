@@ -107,27 +107,37 @@ The Phishing Detection System is a full-stack, production-grade platform for det
 - **Frontend (UI):** HTML5, Vanilla JavaScript, CSS3 (no frameworks)
 - **Infrastructure:** Ubuntu, Nginx, Gunicorn, LetsEncrypt SSL, systemd, UFW firewall
 
+
 ### Architecture Diagram
 
+<details>
+<summary>Click to expand Mermaid diagram (GitHub compatible)</summary>
+
 ```mermaid
-graph TD
-		A[User (Browser)] -->|1. Submit URL| B[Frontend (HTML/JS)]
-		B -->|2. API Request (JWT)| C[Backend API (Flask)]
-		C -->|3. Auth & Security Checks| D[Security Middleware]
-		D -->|4. Threat Intel| E[PhishTank Integration]
-		D -->|5. Feature Extraction| F[Feature Extractor]
-		F -->|6. ML Prediction| G[Random Forest Model]
-		D -->|7. Heuristic Rules| H[Heuristic Engine]
-		G -->|8. Result| I[Result Aggregator]
-		H -->|8. Result| I
-		E -->|8. Result| I
-		I -->|9. Response| B
-		B -->|10. Display Result| A
-		C -->|Optional: Subdomain Scan| J[Subdomain Scanner]
-		J -->|Results| I
-		C -->|Memory Mgmt| K[Memory Optimizer]
-		D -->|DDoS/Rate Limiting| L[Advanced Security]
+flowchart TD
+	A[User (Browser)] -->|1. Submit URL| B[Frontend (HTML/JS)]
+	B -->|2. API Request (JWT)| C[Backend API (Flask)]
+	C -->|3. Auth & Security Checks| D[Security Middleware]
+	D -->|4. Threat Intel| E[PhishTank Integration]
+	D -->|5. Feature Extraction| F[Feature Extractor]
+	F -->|6. ML Prediction| G[Random Forest Model]
+	D -->|7. Heuristic Rules| H[Heuristic Engine]
+	G -->|8. Result| I[Result Aggregator]
+	H -->|8. Result| I
+	E -->|8. Result| I
+	I -->|9. Response| B
+	B -->|10. Display Result| A
+	C -->|Optional: Subdomain Scan| J[Subdomain Scanner]
+	J -->|Results| I
+	C -->|Memory Mgmt| K[Memory Optimizer]
+	D -->|DDoS/Rate Limiting| L[Advanced Security]
 ```
+
+</details>
+
+If the diagram does not render on GitHub, you can use any online Mermaid live editor (e.g. https://mermaid.live/) to visualize it, or refer to the following PNG (add your own image if needed):
+
+![System Architecture Diagram](docs/architecture.png)
 
 ### Data Flow
 1. User submits a URL via the frontend.
