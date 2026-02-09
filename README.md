@@ -223,7 +223,7 @@ The results are returned via the `/api/subdomain-scan` endpoint and displayed in
 #### Visual Flow (Image)
 If you prefer a visual diagram, see below:
 
-![Subdomain Scanner Architecture](Downloads/Untitled%20diagram-2026-02-09-045749.png)
+
 
 ### 4.6 Password & MFA Security (`good_security.py`)
 - **Password Strength:** Length, variety, uniqueness, blacklist check
