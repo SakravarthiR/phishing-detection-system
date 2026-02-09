@@ -1,216 +1,352 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tracking Eyes</title>
-  <style>
-    * {
-        padding: 0;
-        margin: 0;
-        box-sizing: border-box;
-    }
-
-    html,
-    body {
-        display: grid;
-        height: 100%;
-        place-items: center;
-        background-color: #000000;
-    }
-
-    body {
-        overflow: hidden;
-    }
-
-    .wrapper {
-        position: relative;
-    }
-
-    .btn-button {
-        background: #fff;
-        border: 3px solid #fff;
-        border-radius: 10rem;
-        cursor: pointer;
-        padding: 2rem;
-        position: relative;
-        z-index: 100;
-    }
-
-    .btn-button:hover,
-    .btn-button:hover .btn-lid {
-        animation: eye-lid 100ms forwards;
-    }
-
-    .btn-button:active .btn-pupil {
-        animation: pupil 100ms infinite 500ms;
-        border-width: 0.5rem;
-        padding: 1rem;
-    }
-
-    .btn-lid {
-        border-radius: 10rem;
-        height: 100%;
-        left: 0;
-        position: absolute;
-        top: 0;
-        width: 100%;
-        z-index: 101;
-    }
-
-    .btn-pupil {
-        background: #000;
-        border: 0.8rem solid rgb(156, 207, 255);
-        border-radius: 10rem;
-        padding: 0.7rem;
-        transition: all 200ms ease-out;
-    }
-
-    .btn-sensor {
-        clip-path: polygon(0 0, 100% 0, 50% 100%, 0 0);
-        height: 130dvmax;
-        overflow: hidden;
-        position: absolute;
-        left: calc(50% - 130dvmax / 2);
-        top: calc(50% - 130dvmax / 2);
-        transform: rotate(calc(var(--a) * 1deg)) translateY(calc(130dvmax * -50 / 100));
-        width: 130dvmax;
-        z-index: 99;
-    }
-
-    .sensor-n:hover~.btn-button .btn-pupil {
-        transform: translateX(0) translateY(calc(-3 * 20%));
-    }
-
-    .sensor-ne:hover~.btn-button .btn-pupil {
-        transform: translateX(calc(2 * 20%)) translateY(calc(-2 * 20%));
-    }
-
-    .sensor-e:hover~.btn-button .btn-pupil {
-        transform: translateX(calc(3 * 20%)) translateY(0);
-    }
-
-    .sensor-se:hover~.btn-button .btn-pupil {
-        transform: translateX(calc(2 * 20%)) translateY(calc(2 * 20%));
-    }
-
-    .sensor-s:hover~.btn-button .btn-pupil {
-        transform: translateX(0) translateY(calc(3 * 20%));
-    }
-
-    .sensor-sw:hover~.btn-button .btn-pupil {
-        transform: translateX(calc(-2 * 20%)) translateY(calc(2 * 20%));
-    }
-
-    .sensor-w:hover~.btn-button .btn-pupil {
-        transform: translateX(calc(-3 * 20%)) translateY(0);
-    }
-
-    .sensor-nw:hover~.btn-button .btn-pupil {
-        transform: translateX(calc(-2 * 20%)) translateY(calc(-2 * 20%));
-    }
-
-    @keyframes pupil {
-        0% {
-            transform: scale(1.2) translate(0%, -10%);
-        }
-
-        25% {
-            transform: scale(1.2) translate(-10%, 10%);
-        }
-
-        50% {
-            transform: scale(1.2) translate(10%, -5%);
-        }
-
-        75% {
-            transform: scale(1.2) translate(-10%, -5%);
-        }
-
-        100% {
-            transform: scale(1.2) translate(10%, 10%);
-        }
-    }
-
-    @keyframes eye-lid {
-        0% {
-            background: #000;
-        }
-
-        25% {
-            background: linear-gradient(0deg,
-                    #000 0% 9%,
-                    transparent 10% 90%,
-                    #000 91% 100%);
-        }
-
-        50% {
-            background: linear-gradient(0deg,
-                    #000 0% 18%,
-                    transparent 19% 81%,
-                    #000 82% 100%);
-        }
-
-        75% {
-            background: linear-gradient(0deg,
-                    #000 0% 27%,
-                    transparent 28% 72%,
-                    #000 73% 100%);
-        }
-
-        100% {
-            background: linear-gradient(0deg,
-                    #000 0% 35%,
-                    transparent 36% 64%,
-                    #000 65% 100%);
-        }
-    }
-
-    .click-btn {
-        position: absolute;
-        bottom: 50px;
-        right: 50px;
-        padding: 10px 30px;
-        background: #fff;
-        border: 2px solid #fff;
-        color: #000;
-        font-weight: bold;
-        cursor: pointer;
-        border-radius: 5px;
-        font-size: 14px;
-        transition: all 0.3s;
-        z-index: 9999;
-        pointer-events: auto;
-    }
-
-    .click-btn:hover {
-        background: #000;
-        color: #fff;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' http://127.0.0.1:5000 http://localhost:5000; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Phishing URL Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/semantic-ui/2.4.1/semantic.min.css">
+    <link rel="stylesheet" href="professional.css">
 </head>
 <body>
-  <div class="wrapper">
-    <div style="--a: 0;" class="btn-sensor sensor-n"></div>
-    <div style="--a: 45;" class="btn-sensor sensor-ne"></div>
-    <div style="--a: 90;" class="btn-sensor sensor-e"></div>
-    <div style="--a: 135;" class="btn-sensor sensor-se"></div>
-    <div style="--a: 180;" class="btn-sensor sensor-s"></div>
-    <div style="--a: 225;" class="btn-sensor sensor-sw"></div>
-    <div style="--a: 270;" class="btn-sensor sensor-w"></div>
-    <div style="--a: 315;" class="btn-sensor sensor-nw"></div>
+    <div class="parallax-bg"></div>
+    <div class="cursor-circle"></div>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <!-- Logout Button (Top Right) -->
+            <div class="logout-wrapper">
+                <button id="logoutBtn" class="logout-btn" title="Logout">
+                    <span>Logout</span>
+                </button>
+            </div>
+            
+            <!-- Scanner Link (Centered Above Title) -->
+            <div class="header-actions">
+                                <a href="advanced-discovery-engine.html" class="scanner-link-btn">
+                    <span class="btn-text">Advanced Subdomain Scanner</span>
+                </a>
+            </div>
+            
+            <h1>Phishing URL Detector</h1>
+            <p class="subtitle">Analyze URLs for potential phishing threats</p>
+        </header>
 
-    <button class="btn-button">
-      <div class="btn-lid"></div>
-      <div class="btn-pupil"></div>
-    </button>
+        <!-- Main Content -->
+        <main class="main-content-with-sidebar">
+            <div class="main-left-column">
+                <!-- Input Section -->
+                <div class="input-section card">
+                    <label for="urlInput" class="input-label">Enter URL to Check:</label>
+                    <div class="input-group">
+                        <input 
+                            type="url" 
+                            id="urlInput" 
+                            class="url-input" 
+                            placeholder="https://example.com"
+                            autocomplete="off"
+                            autocorrect="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                        >
+                        <button id="checkBtn" class="check-btn ui button">
+                            <span id="btnText" class="btn-text-content">Check URL</span>
+                            <div id="btnLoader" class="btn-loader hidden">
+                                <div class="inner one"></div>
+                                <div class="inner two"></div>
+                                <div class="inner three"></div>
+                            </div>
+                        </button>
+                    </div>
+                    <p class="input-hint">Enter a complete URL including protocol (http:// or https://)</p>
+                </div>
 
-    <button class="btn-button">
-      <div class="btn-lid"></div>
-      <div class="btn-pupil"></div>
-    </button>
-  </div>
+            <!-- Results Section -->
+            <div id="resultsSection" class="results-section hidden">
+                <div id="resultsCard" class="card results-card">
+                    <!-- Result Header -->
+                    <div id="resultHeader" class="result-header">
+                        <div class="result-icon" id="resultIcon">?</div>
+                        <div class="result-title">
+                            <h2 id="resultLabel">Analyzing...</h2>
+                            <p id="resultUrl" class="result-url"></p>
+                        </div>
+                    </div>
 
-  <button class="click-btn" onclick="window.location.href='secure-auth-portal.html'">CLICK</button>
+                    <!-- Result Details -->
+                    <div class="result-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Confidence:</span>
+                            <span id="resultProbability" class="detail-value">--</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Classification:</span>
+                            <span id="resultClassification" class="detail-value">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="progress-container">
+                        <div id="progressBar" class="progress-bar" style="width: 0%">
+                            <span class="progress-text">0%</span>
+                        </div>
+                    </div>
+
+                    <!-- Reason -->
+                    <div class="reason-section">
+                        <h3 class="reason-title">Analysis:</h3>
+                        <p id="resultReason" class="reason-text">--</p>
+                    </div>
+
+                    <!-- Threat Indicators -->
+                    <div id="threatIndicators" class="threat-indicators">
+                        <!-- Dynamic threat badges will be populated by JavaScript -->
+                    </div>
+
+                    <!-- Website Status Check -->
+                    <div id="websiteStatusSection" class="website-status-section hidden">
+                        <h3 class="status-title">Website Status Check</h3>
+                        <div class="status-grid">
+                            <div class="status-item">
+                                <span class="status-icon" id="reachableIcon">●</span>
+                                <div class="status-info">
+                                    <span class="status-label">Status</span>
+                                    <span class="status-value" id="reachableStatus">Checking...</span>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-icon">⏱</span>
+                                <div class="status-info">
+                                    <span class="status-label">Response Time</span>
+                                    <span class="status-value" id="responseTime">--</span>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-icon">🔒</span>
+                                <div class="status-info">
+                                    <span class="status-label">SSL Certificate</span>
+                                    <span class="status-value" id="sslStatus">--</span>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-icon">📊</span>
+                                <div class="status-info">
+                                    <span class="status-label">HTTP Status</span>
+                                    <span class="status-value" id="httpStatus">--</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="suspiciousFormats" class="suspicious-formats hidden">
+                            <h4>Suspicious Indicators Found:</h4>
+                            <div id="formatList"></div>
+                        </div>
+                        <div id="websiteError" class="website-error hidden"></div>
+                    </div>
+
+                    <!-- Advanced Subdomain Scanner Results -->
+                    <div id="advancedScanSection" class="advanced-scan-section hidden">
+                        <div class="scan-header">
+                            <h3>Advanced Subdomain Scan Results</h3>
+                            <button id="exportCsvBtn" class="export-csv-btn">Export CSV</button>
+                        </div>
+                        
+                        <!-- Summary Cards -->
+                        <div class="scan-summary-cards">
+                            <div class="scan-card primary">
+                                <div class="scan-card-icon">●</div>
+                                <div class="scan-card-content">
+                                    <div class="scan-card-label">Domain Scanned</div>
+                                    <div class="scan-card-value" id="scannedDomain">--</div>
+                                </div>
+                            </div>
+                            
+                            <div class="scan-card success">
+                                <div class="scan-card-icon">✓</div>
+                                <div class="scan-card-content">
+                                    <div class="scan-card-label">Total Subdomains</div>
+                                    <div class="scan-card-value" id="totalSubdomains">--</div>
+                                </div>
+                            </div>
+                            
+                            <div class="scan-card info">
+                                <div class="scan-card-icon">�</div>
+                                <div class="scan-card-content">
+                                    <div class="scan-card-label">Most Used IP</div>
+                                    <div class="scan-card-value" id="mostUsedIpAddress">--</div>
+                                    <div class="scan-card-subtext" id="ipUsageCount">--</div>
+                                </div>
+                            </div>
+                            
+                            <div class="scan-card warning">
+                                <div class="scan-card-icon">→</div>
+                                <div class="scan-card-content">
+                                    <div class="scan-card-label">Unique IPs</div>
+                                    <div class="scan-card-value" id="uniqueIpCount">--</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- IP Statistics -->
+                        <div class="ip-statistics-section">
+                            <h4>IP Address Distribution</h4>
+                            <div id="ipStatisticsContainer" class="ip-stats-container"></div>
+                        </div>
+                        
+                        <!-- Advanced Subdomain Table -->
+                        <div class="advanced-subdomain-table-container">
+                            <table class="advanced-subdomain-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Subdomain</th>
+                                        <th>Full Domain</th>
+                                        <th>IP Address</th>
+                                        <th>Cloudflare</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="advancedSubdomainTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Feature Categories (Collapsible) -->
+                    <details class="features-details">
+                        <summary class="features-summary">View Detailed Analysis (37 Features)</summary>
+                        
+                        <!-- Security Threats -->
+                        <div class="feature-category">
+                            <h4 class="category-title">Security Threats</h4>
+                            <div id="securityFeatures" class="features-container">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- URL Structure -->
+                        <div class="feature-category">
+                            <h4 class="category-title">URL Structure</h4>
+                            <div id="structureFeatures" class="features-container">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Character Analysis -->
+                        <div class="feature-category">
+                            <h4 class="category-title">🔤 Character Analysis</h4>
+                            <div id="characterFeatures" class="features-container">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Domain Analysis -->
+                        <div class="feature-category">
+                            <h4 class="category-title">Domain Analysis</h4>
+                            <div id="domainFeatures" class="features-container">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Advanced Detection -->
+                        <div class="feature-category">
+                            <h4 class="category-title">Advanced Detection</h4>
+                            <div id="advancedFeatures" class="features-container">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- Error Section -->
+            <div id="errorSection" class="error-section hidden">
+                <div class="card error-card">
+                    <div class="error-icon">⚠</div>
+                    <h3 class="error-title">Error</h3>
+                    <p id="errorMessage" class="error-message"></p>
+                    <button id="dismissError" class="dismiss-btn">Dismiss</button>
+                </div>
+            </div>
+
+            <!-- Info Section -->
+            <div class="info-section card">
+                <h3>(%) About This Tool</h3>
+                <p>This tool uses machine learning with <strong>37 advanced features</strong> to analyze URLs and detect potential phishing attempts.</p>
+                <ul class="info-list">
+                    <li>[Real-time analysis with ML mode]</li>
+                    <li>[RFC-compliant IPv4 & IPv6 detection]</li>
+                    <li>[Punycode/IDN homograph attack detection]</li>
+                    <li>[Brand typosquatting identification]</li>
+                    <li>[URL shortener & suspicious TLD detection]</li>
+                    <li>[Hex encoding & obfuscation analysis]</li>
+                    <li>[Shannon entropy calculation]</li>
+                    <li>[Port & subdomain analysis]</li>
+                </ul>
+                <p class="warning"> <strong>Note:</strong> This is a demonstration tool. Always exercise caution with suspicious links.</p>
+            </div>
+            </div>
+
+            <!-- Right Sidebar: Recent Scan History -->
+            <aside class="scan-history-sidebar-main">
+                <div class="history-header">
+                    <h3 class="history-title">
+                        <span class="history-icon">📋</span>
+                        Recent Scans
+                    </h3>
+                    <button id="clearHistoryBtn" class="clear-history-btn delete-btn-animated" title="Clear History">
+                        <div class="trash">
+                            <div class="top">
+                                <div class="paper"></div>
+                            </div>
+                            <div class="box"></div>
+                            <div class="check">
+                                <svg viewBox="0 0 8 6">
+                                    <polyline points="1 3.4 2.71428571 5 7 1"></polyline>
+                                </svg>
+                            </div>
+                        </div>
+                        <span>Clear</span>
+                    </button>
+                </div>
+
+                <div id="historyList" class="history-list">
+                    <div class="history-empty">
+                       
+                        <p class="empty-text">No scan history yet</p>
+                        <p class="empty-hint">Scanned URLs appear here</p>
+                    </div>
+                </div>
+
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 85%;">URL</th>
+                                <th style="width: 15%; text-align: center;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Phishing Detector v1.0 made by SUGAR </p>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="session-manager.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

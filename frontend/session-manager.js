@@ -16,8 +16,8 @@ function getAPIURL() {
         return 'http://localhost:5000';
     }
     
-    // Production: same-origin
-    return '';
+    // Production
+    return 'https://phishing-detection-system-1.onrender.com';
 }
 
 /**
@@ -204,21 +204,29 @@ function getAuthHeaders() {
  * Check authentication and redirect if needed
  */
 function checkAuthentication() {
+    console.log('[DEBUG] checkAuthentication() called');
+    console.log('[DEBUG] Current path:', window.location.pathname);
+    
     // If this is the login page, don't redirect
     if (window.location.pathname.includes('secure-auth-portal.html') || 
         window.location.pathname.includes('auth-secure.html') ||
         window.location.pathname.includes('login')) {
+        console.log('[DEBUG] On login page, skipping auth check');
         return true;
     }
     
-    if (!isSessionValid()) {
+    const sessionValid = isSessionValid();
+    console.log('[DEBUG] Session valid:', sessionValid);
+    
+    if (!sessionValid) {
         // Session is invalid - redirect to login
         console.warn('[!] Session invalid - redirecting to login...');
-        window.location.href = '/secure-auth-portal.html?reason=session_expired';
+        window.location.href = 'secure-auth-portal.html?reason=session_expired';
         return false;
     }
     
-    console.log('[+] Session valid for user:', getSession().username);
+    const session = getSession();
+    console.log('[+] Session valid for user:', session ? session.username : 'unknown');
     return true;
 }
 

@@ -1,13 +1,24 @@
-"""Phishing Detection API Server"""
+"""
+Secure Phishing Detection API Server
+
+Enterprise-grade API with multi-layer security:
+- JWT authentication & session management
+- Rate limiting & DDoS protection
+- Input validation & sanitization
+- CSRF protection & secure headers
+
+Deployment: gunicorn -c backend/gunicorn_config.py backend.secure_api:app
+"""
 
 from flask import Flask, request, jsonify, g, send_from_directory
+# Using manual CORS headers instead of flask-cors for better control
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 import sys
 from datetime import datetime
-import gc
-import requests
+import gc  # Memory optimization
+import requests  # For HTTP requests with connection pooling
 import logging
 
 
@@ -16,10 +27,13 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
+
+# Configure logging
 logger = logging.getLogger(__name__)
 
 
 def cleanup_memory():
+    """Force garbage collection and memory cleanup"""
     try:
         gc.collect()
         if hasattr(IPSessionManager, 'cleanup_expired_sessions'):
@@ -54,25 +68,6 @@ from ip_session_security import (
     normalize_ip
 )
 
-# Enterprise-grade security system
-from good_security import (
-    good_security_check,
-    record_login_result,
-    DeviceFingerprint,
-    DeviceTrustManager,
-    AccountLockout,
-    AnomalyDetector,
-    LoginHistory,
-    TOTPManager,
-    PasswordSecurity,
-    SecurityChallenge,
-    enable_mfa,
-    verify_mfa,
-    is_mfa_enabled,
-    get_user_security_status,
-    AuthSecurityConfig
-)
-
 # Import ML modules
 from phish_detector import (
     load_model,
@@ -83,148 +78,152 @@ from phish_detector import (
     get_professional_risk_assessment
 )
 
+# Import PhishTank integration
 from phishtank_integration import check_phishtank, get_phishtank_db
 from subdomain_scanner import SubdomainScanner
 
+# Memory optimization utilities
 try:
     from memory_optimizer import cleanup_memory, get_memory_usage, memory_efficient
 except ImportError:
+    # Fallback if memory_optimizer not available
     def cleanup_memory(): gc.collect()
     def get_memory_usage(): return 0
     def memory_efficient(f): return f
 
+# Connection pooling for 50 concurrent users
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-
 def create_session_with_pool():
+    """Create requests session with connection pooling for 50 users"""
     session = requests.Session()
+    # Pool size: 25 connections per worker x 2 workers = 50 concurrent connections
     adapter = HTTPAdapter(
-        pool_connections=10,
-        pool_maxsize=10,
-        max_retries=Retry(total=2, backoff_factor=0.3)
+        pool_connections=25,  # Max connections to pool
+        pool_maxsize=25,      # Max connections per pool
+        max_retries=Retry(total=2, backoff_factor=0.5)
     )
     session.mount('http://', adapter)
     session.mount('https://', adapter)
     return session
 
-
+# Global session with connection pooling
 REQUESTS_SESSION = create_session_with_pool()
 
-import os
-FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'frontend')
-
-app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
+# Initialize Flask app with security config
+app = Flask(__name__)
 app.config.from_object(SecurityConfig)
 
+# Enable response compression for low bandwidth
 try:
     from flask_compress import Compress
     Compress(app)
 except ImportError as e:
-    logger.warning(f"Flask-Compress not available: {str(e)}")
+        logger.warning(f"Flask-Compress not available - skipping compression: {str(e)}")
 
-ALLOWED_ORIGINS = [
-    'http://localhost',
-    'http://127.0.0.1',
-    'http://localhost:80',
-    'http://127.0.0.1:80',
-    'http://localhost:5000',
-    'http://127.0.0.1:5000',
-    'https://phishing-detection-system-1.onrender.com',
-    'https://phishingdetector.systems',
-    'http://phishingdetector.systems',
-    'null'
-]
+# Configure CORS - Production ready configuration
+# Don't use flask-cors extension, use manual headers instead for better control
+# CORS(app, ...) is commented out to avoid conflicts
 
-
+# CORS - Wide open for development
 @app.after_request
 def after_request_cors(response):
-    origin = request.headers.get('Origin', '')
-    response.headers['Access-Control-Allow-Origin'] = origin if origin else '*'
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
-    response.headers['Access-Control-Max-Age'] = '3600'
+    """Allow all CORS requests"""
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = '*'
+    response.headers['Access-Control-Expose-Headers'] = '*'
     return response
 
-
+# Initialize rate limiter with global protection
 limiter = Limiter(
     app=app,
-    key_func=lambda: get_client_ip(),
+    key_func=lambda: get_client_ip(),  # Use custom IP extraction
     storage_uri=SecurityConfig.RATE_LIMIT_STORAGE_URL,
     default_limits=[
         f"{SecurityConfig.RATE_LIMIT_PER_MINUTE} per minute",
         f"{SecurityConfig.RATE_LIMIT_PER_HOUR} per hour"
     ],
     enabled=SecurityConfig.RATE_LIMIT_ENABLED,
-    in_memory_fallback_enabled=True
+    in_memory_fallback_enabled=True  # Fallback if Redis unavailable
 )
 
+# Global model variable
 model = None
 model_loaded = False
+# Use absolute path for model file - works both locally and on Render
 MODEL_PATH = os.path.join(os.path.dirname(__file__), 'phish_model.pkl')
 
 
 def initialize_model():
+    """Load the ML model at application startup"""
     global model, model_loaded
-    logger.info("Initializing phishing detector API...")
+    
+    logger.info("🔄 Initializing secure phishing detector API...")
     model = load_model(MODEL_PATH)
+    
     if model is not None:
         model_loaded = True
-        logger.info("API ready with trained model")
+        logger.info("✅ API ready with trained model")
     else:
         model_loaded = False
-        logger.warning("API started but model not loaded")
+        logger.warning("⚠️  API started but model not loaded")
 
 
+# Initialize IP session security
 IPSessionManager.load_whitelisted_devices()
-logger.info("IP Session Security initialized")
+logger.info("✅ IP Session Security initialized")
 
+# Load model when app starts
 initialize_model()
 
-# Frontend served from same Render deployment
-FRONTEND_URL = ''  # Empty for same-origin
-
+# Setup frontend serving
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 
 @app.route('/')
 def serve_index():
-    """Serve the main index page"""
-    from flask import send_from_directory
-    return send_from_directory(app.static_folder, 'index.html')
+    """Serve the main index.html"""
+    return send_from_directory(FRONTEND_DIR, 'index.html')
 
 @app.route('/<path:filename>')
 def serve_static(filename):
-    """Serve static files from frontend folder"""
-    from flask import send_from_directory
-    if os.path.exists(os.path.join(app.static_folder, filename)):
-        return send_from_directory(app.static_folder, filename)
-    return jsonify({'error': 'Not found'}), 404
+    """Serve static files (CSS, JS, HTML, images)"""
+    # Prevent path traversal attacks
+    import os.path
+    if '..' in filename or filename.startswith('/'):
+        logger.warning(f"Attempted path traversal: {filename}")
+        return jsonify({'error': 'Invalid path'}), 403
+    
+    # List of allowed file extensions
+    allowed_extensions = {'.html', '.css', '.js', '.json', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.woff', '.woff2', '.ttf'}
+    
+    # Check file extension
+    file_ext = os.path.splitext(filename)[1].lower()
+    if file_ext not in allowed_extensions:
+        return jsonify({'error': 'File type not allowed'}), 403
+    
+    try:
+        return send_from_directory(FRONTEND_DIR, filename)
+    except FileNotFoundError:
+        # If file not found, serve index.html for SPA routing
+        if filename.endswith('.html'):
+            return send_from_directory(FRONTEND_DIR, 'index.html')
+        return jsonify({'error': 'File not found'}), 404
+    except Exception as e:
+        logger.error(f"Error serving file {filename}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @app.before_request
 def security_checks():
     """
     Perform advanced security checks before each request
-    Includes DDoS/DoS protection, IP whitelisting, and memory monitoring
+    Includes DDoS/DoS protection and IP whitelisting
     """
     # Allow CORS preflight requests to pass through without security checks
     if request.method == 'OPTIONS':
         logger.debug(f"CORS preflight request: {request.path}")
         return None
-    
-    # Memory check for 512MB Render - prevent OOM
-    try:
-        mem_usage = get_memory_usage()
-        if mem_usage > 180:  # Above 180MB, trigger cleanup
-            logger.warning(f"High memory usage: {mem_usage:.1f}MB - triggering cleanup")
-            cleanup_memory()
-        if mem_usage > 250:  # Critical - refuse new requests temporarily
-            logger.critical(f"CRITICAL memory: {mem_usage:.1f}MB - rejecting request")
-            return jsonify({
-                'error': 'Server busy',
-                'message': 'Server is temporarily overloaded. Please retry in a few seconds.'
-            }), 503
-    except Exception as e:
-        logger.debug(f"Memory check error: {e}")
     
     try:
         # Get client IP with null check
@@ -362,6 +361,12 @@ def internal_error(error):
 # PUBLIC ENDPOINTS
 # ========================
 
+@app.route('/', methods=['GET'])
+@limiter.limit("100 per minute")
+def root():
+    """Root endpoint - serves index.html"""
+    return send_from_directory(FRONTEND_DIR, 'index.html')
+
 
 @app.route('/health', methods=['GET'])
 @limiter.limit("200 per minute")
@@ -384,34 +389,60 @@ def health_check():
 @app.route('/demo-login', methods=['POST'])
 def demo_login():
     """
-    Demo login endpoint - DISABLED FOR SECURITY
-    This endpoint has been removed to prevent authentication bypass.
+    Quick login endpoint for development/demo purposes only
+    DISABLED IN PRODUCTION - Only works if ENVIRONMENT != 'production'
     """
-    logger.warning(f"Attempted access to disabled /demo-login endpoint from {RateLimiter.get_client_ip()}")
-    return jsonify({
-        'error': 'Forbidden',
-        'message': 'This endpoint is not available'
-    }), 403
+    import os
+    if os.getenv('ENVIRONMENT') == 'production':
+        logger.warning("Attempted access to /demo-login in production!")
+        return jsonify({
+            'error': 'Forbidden',
+            'message': 'This endpoint is not available'
+        }), 403
+    
+    try:
+        ip_address = RateLimiter.get_client_ip()
+        
+        # Generate token with demo username
+        token = AuthenticationManager.generate_token('demo')
+        expires_in = SecurityConfig.SESSION_TIMEOUT_MINUTES * 60
+        
+        if token:
+            log_security_event(
+                'DEMO_LOGIN_SUCCESS',
+                f'Demo mode login from {ip_address}',
+                'INFO'
+            )
+            return jsonify({
+                'success': True,
+                'message': 'Demo login successful',
+                'token': token,
+                'expires_in': expires_in,
+                'username': 'demo'
+            }), 200
+        else:
+            return jsonify({
+                'error': 'Token generation failed',
+                'message': 'Could not generate authentication token'
+            }), 500
+    
+    except Exception as e:
+        logger.error(f"Demo login error: {str(e)}")
+        return jsonify({
+            'error': 'Login failed',
+            'message': 'An error occurred during authentication'
+        }), 500
 
 
 @app.route('/login', methods=['POST', 'OPTIONS'])
 def login():
     """
-    User authentication endpoint with enterprise-level security
-    
-    Features:
-    - Progressive account lockout
-    - Device fingerprinting & trust
-    - Anomaly detection
-    - MFA support
-    - Login history tracking
+    User authentication endpoint
     
     Request JSON:
         {
             "username": "admin",
-            "password": "password123",
-            "mfa_code": "123456",  // Optional - required if MFA enabled
-            "trust_device": true   // Optional - remember this device
+            "password": "password123"
         }
     
     Response JSON:
@@ -419,13 +450,7 @@ def login():
             "success": true,
             "token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
             "expires_in": 86400,
-            "message": "Authentication successful",
-            "security": {
-                "device_trusted": true,
-                "anomaly_score": 0,
-                "mfa_enabled": false,
-                "new_device": false
-            }
+            "message": "Authentication successful"
         }
     """
     # Handle CORS preflight
@@ -437,10 +462,12 @@ def login():
         # Get client IP
         ip_address = RateLimiter.get_client_ip()
         
+        # SECURITY CHECKS DISABLED FOR DEVELOPMENT
+        # Skip rate limiting to allow unrestricted access
+        
         # Validate request
         if not request.is_json:
             return jsonify({
-                'success': False,
                 'error': 'Invalid request',
                 'message': 'Content-Type must be application/json'
             }), 400
@@ -450,20 +477,16 @@ def login():
         # Validate required fields
         if 'username' not in data or 'password' not in data:
             return jsonify({
-                'success': False,
                 'error': 'Missing fields',
                 'message': 'Username and password are required'
             }), 400
         
         username = data['username'].strip() if isinstance(data['username'], str) else ''
         password = data['password'] if isinstance(data['password'], str) else ''
-        mfa_code = data.get('mfa_code', '').strip() if isinstance(data.get('mfa_code'), str) else ''
-        trust_device = data.get('trust_device', False)
         
         # Validate input types
         if not isinstance(username, str) or not isinstance(password, str):
             return jsonify({
-                'success': False,
                 'error': 'Invalid input',
                 'message': 'Username and password must be strings'
             }), 400
@@ -471,30 +494,9 @@ def login():
         # Check for empty values
         if not username or not password:
             return jsonify({
-                'success': False,
                 'error': 'Invalid input',
                 'message': 'Username and password cannot be empty'
             }), 400
-        
-        # ============================================
-        # ENTERPRISE-LEVEL SECURITY CHECK (Pre-auth)
-        # ============================================
-        security_check = good_security_check(request, username, password)
-        
-        # Check if account is locked
-        if not security_check['allowed']:
-            log_security_event(
-                'ACCOUNT_LOCKED',
-                f'Username: {username}, IP: {ip_address}, Lockout: {security_check["lockout_seconds"]}s',
-                'WARNING'
-            )
-            return jsonify({
-                'success': False,
-                'error': 'Account locked',
-                'message': security_check['message'],
-                'lockout_seconds': security_check['lockout_seconds'],
-                'remaining_attempts': 0
-            }), 429
         
         # Validate username format
         is_valid, error_msg = SecurityValidator.validate_username(username)
@@ -504,123 +506,56 @@ def login():
                 f'Username: {username[:50]}, Error: {error_msg}',
                 'WARNING'
             )
-            record_login_result(username, ip_address, security_check['device_fingerprint'], 
-                              security_check['device_info'], False)
+            RateLimiter.record_failed_attempt(ip_address)
             return jsonify({
-                'success': False,
                 'error': 'Invalid username format',
-                'message': error_msg,
-                'remaining_attempts': security_check['remaining_attempts'] - 1
+                'message': error_msg
             }), 400
         
         # Check for suspicious patterns
         if SecurityValidator.check_suspicious_input(username):
             log_security_event(
                 'SUSPICIOUS_LOGIN_ATTEMPT',
-                f'Username: {username[:50]}, Anomaly Score: {security_check["anomaly_score"]}',
+                f'Username: {username[:50]}',
                 'WARNING'
             )
-            record_login_result(username, ip_address, security_check['device_fingerprint'],
-                              security_check['device_info'], False)
+            RateLimiter.record_failed_attempt(ip_address)
             return jsonify({
-                'success': False,
                 'error': 'Invalid credentials',
-                'message': 'Authentication failed',
-                'remaining_attempts': security_check['remaining_attempts'] - 1
+                'message': 'Authentication failed'
             }), 401
         
-        # ============================================
-        # AUTHENTICATE USER
-        # ============================================
+        # Authenticate user
         is_authenticated, token, error = AuthenticationManager.authenticate_user(
             username,
             password
         )
         
         if not is_authenticated:
-            # Record failed attempt with security system
-            record_login_result(username, ip_address, security_check['device_fingerprint'],
-                              security_check['device_info'], False)
+            # Record failed attempt
+            RateLimiter.record_failed_attempt(ip_address)
             
-            # Get remaining attempts
-            remaining = AccountLockout.get_remaining_attempts(ip_address)
+            # Check remaining attempts
+            _, remaining, _ = RateLimiter.check_login_attempts(ip_address)
             
             log_security_event(
                 'FAILED_LOGIN',
-                f'Username: {username}, Remaining attempts: {remaining}, Device: {security_check["device_info"]["browser"]}',
+                f'Username: {username}, Remaining attempts: {remaining}',
                 'WARNING'
             )
             
             return jsonify({
-                'success': False,
                 'error': 'Authentication failed',
-                'message': error or 'Invalid username or password',
-                'remaining_attempts': remaining,
-                'security': {
-                    'anomaly_score': security_check['anomaly_score'],
-                    'alerts': [a['message'] for a in security_check['security_alerts']]
-                }
+                'message': error,
+                'remaining_attempts': remaining
             }), 401
         
-        # ============================================
-        # MFA VERIFICATION (if enabled)
-        # ============================================
-        mfa_enabled = is_mfa_enabled(username)
-        requires_mfa = mfa_enabled or (security_check['requires_mfa'] and security_check['anomaly_score'] >= 50)
-        
-        if requires_mfa and mfa_enabled:
-            if not mfa_code:
-                # MFA required but not provided
-                log_security_event(
-                    'MFA_REQUIRED',
-                    f'Username: {username}, Anomaly Score: {security_check["anomaly_score"]}',
-                    'INFO'
-                )
-                return jsonify({
-                    'success': False,
-                    'mfa_required': True,
-                    'challenge_id': security_check.get('challenge_id'),
-                    'message': 'MFA verification required',
-                    'security': {
-                        'anomaly_score': security_check['anomaly_score'],
-                        'new_device': not security_check['device_trusted'],
-                        'alerts': [a['message'] for a in security_check['security_alerts']]
-                    }
-                }), 200  # 200 to indicate partial success
-            
-            # Verify MFA code
-            mfa_valid, mfa_message = verify_mfa(username, mfa_code)
-            if not mfa_valid:
-                record_login_result(username, ip_address, security_check['device_fingerprint'],
-                                  security_check['device_info'], False)
-                log_security_event(
-                    'MFA_FAILED',
-                    f'Username: {username}, Reason: {mfa_message}',
-                    'WARNING'
-                )
-                return jsonify({
-                    'success': False,
-                    'error': 'MFA verification failed',
-                    'message': mfa_message,
-                    'mfa_required': True
-                }), 401
-        
-        # ============================================
-        # LOGIN SUCCESS - Record and Create Session
-        # ============================================
-        
-        # Record successful login with security system
-        record_login_result(
-            username, ip_address, 
-            security_check['device_fingerprint'],
-            security_check['device_info'], 
-            True, 
-            trust_device=trust_device
-        )
+        # Clear failed attempts on successful login
+        RateLimiter.clear_failed_attempts(ip_address)
         
         log_security_event(
             'SUCCESSFUL_LOGIN',
-            f'Username: {username}, Device: {security_check["device_info"]["browser"]}/{security_check["device_info"]["os"]}, Trusted: {security_check["device_trusted"]}',
+            f'Username: {username}',
             'INFO'
         )
         
@@ -629,7 +564,7 @@ def login():
         session_id = IPSessionManager.create_session(
             username=username,
             token=token,
-            ip_address=normalize_ip(ip_address),
+            ip_address=normalize_ip(ip_address),  # Normalize IP for IPv6 support
             user_agent=user_agent,
             session_timeout_minutes=SecurityConfig.SESSION_TIMEOUT_MINUTES
         )
@@ -641,10 +576,7 @@ def login():
         session_data = IPSessionManager.get_session_info(session_id)
         csrf_token = session_data.get('csrf_token') if session_data else None
         
-        # Get recent login history for security notification
-        recent_logins = LoginHistory.get_recent_logins(username, 5)
-        
-        logger.info(f"✅ Login successful - User: {username}, Session: {session_id}, IP: {ip_address}, Privileged: {is_privileged}")
+        logger.info(f"✅ Login successful - Session ID: {session_id}, IP: {ip_address}, Privileged: {is_privileged}")
         
         return jsonify({
             'success': True,
@@ -654,145 +586,15 @@ def login():
             'expires_in': SecurityConfig.SESSION_TIMEOUT_MINUTES * 60,
             'message': 'Authentication successful',
             'privileged': is_privileged,
-            'device_name': device_name,
-            'security': {
-                'device_trusted': security_check['device_trusted'] or trust_device,
-                'device_fingerprint': security_check['device_fingerprint'][:8] + '...',
-                'anomaly_score': security_check['anomaly_score'],
-                'mfa_enabled': mfa_enabled,
-                'new_device': not security_check['device_trusted'],
-                'recent_logins': len(recent_logins),
-                'alerts': [a['message'] for a in security_check['security_alerts']] if security_check['security_alerts'] else []
-            }
+            'device_name': device_name
         }), 200
     
     except Exception as e:
         logger.exception(f"Login error: {str(e)}")
         return jsonify({
-            'success': False,
             'error': 'Authentication failed',
             'message': 'An error occurred during authentication'
         }), 500
-
-
-# ========================
-# SECURITY MANAGEMENT ENDPOINTS
-# ========================
-
-@app.route('/security/status', methods=['GET', 'OPTIONS'])
-@require_auth
-def security_status():
-    """Get user's security status including devices, login history, MFA status"""
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    try:
-        username = g.get('current_user', 'unknown')
-        status = get_user_security_status(username)
-        
-        return jsonify({
-            'success': True,
-            'security': status
-        }), 200
-    except Exception as e:
-        logger.error(f"Security status error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/security/mfa/enable', methods=['POST', 'OPTIONS'])
-@require_auth
-def enable_mfa_endpoint():
-    """Enable MFA for current user"""
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    try:
-        username = g.get('current_user', 'unknown')
-        mfa_setup = enable_mfa(username)
-        
-        log_security_event('MFA_ENABLED', f'User: {username}', 'INFO')
-        
-        return jsonify({
-            'success': True,
-            'mfa': {
-                'secret': mfa_setup['secret'],
-                'provisioning_uri': mfa_setup['provisioning_uri'],
-                'backup_codes': mfa_setup['backup_codes']
-            },
-            'message': 'MFA enabled successfully. Save your backup codes!'
-        }), 200
-    except Exception as e:
-        logger.error(f"MFA enable error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/security/devices', methods=['GET', 'OPTIONS'])
-@require_auth
-def get_trusted_devices():
-    """Get list of trusted devices"""
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    try:
-        username = g.get('current_user', 'unknown')
-        devices = DeviceTrustManager.get_trusted_devices(username)
-        
-        return jsonify({
-            'success': True,
-            'devices': devices
-        }), 200
-    except Exception as e:
-        logger.error(f"Get devices error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/security/devices/revoke', methods=['POST', 'OPTIONS'])
-@require_auth
-def revoke_device():
-    """Revoke a trusted device"""
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    try:
-        username = g.get('current_user', 'unknown')
-        data = request.get_json()
-        fingerprint = data.get('fingerprint')
-        
-        if data.get('all'):
-            DeviceTrustManager.revoke_all_devices(username)
-            log_security_event('ALL_DEVICES_REVOKED', f'User: {username}', 'WARNING')
-            return jsonify({'success': True, 'message': 'All devices revoked'}), 200
-        
-        if fingerprint:
-            DeviceTrustManager.revoke_device(username, fingerprint)
-            log_security_event('DEVICE_REVOKED', f'User: {username}, Device: {fingerprint[:8]}', 'INFO')
-            return jsonify({'success': True, 'message': 'Device revoked'}), 200
-        
-        return jsonify({'success': False, 'message': 'No device specified'}), 400
-    except Exception as e:
-        logger.error(f"Revoke device error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-
-@app.route('/security/history', methods=['GET', 'OPTIONS'])
-@require_auth
-def get_login_history():
-    """Get login history for current user"""
-    if request.method == 'OPTIONS':
-        return '', 200
-    
-    try:
-        username = g.get('current_user', 'unknown')
-        limit = request.args.get('limit', 20, type=int)
-        history = LoginHistory.get_recent_logins(username, limit)
-        
-        return jsonify({
-            'success': True,
-            'history': history
-        }), 200
-    except Exception as e:
-        logger.error(f"Login history error: {e}")
-        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # ========================
@@ -875,16 +677,14 @@ def phishtank_update():
             'message': 'An error occurred during update'
         }), 500
 
-@app.route('/predict', methods=['POST', 'OPTIONS'])
+@app.route('/predict', methods=['POST'])
+@require_auth
 @limiter.limit("30 per minute")
 def predict():
     """
-    Predict whether a URL is phishing or legitimate
+    Predict whether a URL is phishing or legitimate (PROTECTED)
     
-    For authenticated users: Full features with higher rate limits
-    For anonymous users: Basic scan with rate limiting
-    
-    Headers (optional):
+    Headers:
         Authorization: Bearer <jwt_token>
     
     Request JSON:
@@ -904,15 +704,6 @@ def predict():
             "website_status": {...}
         }
     """
-    # Handle CORS preflight
-    if request.method == 'OPTIONS':
-        response = app.make_default_options_response()
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
-        # Always return a minimal JSON body for frontend compatibility
-        return jsonify({"status": "ok"}), 200
-    
     try:
         # Check if model is loaded
         if not model_loaded or model is None:
@@ -1086,7 +877,7 @@ def predict():
         }), 500
 
 
-@app.route('/scan-subdomains', methods=['POST', 'OPTIONS'])
+@app.route('/scan-subdomains', methods=['POST'])
 @require_auth
 @limiter.limit("30 per minute")
 def scan_subdomains():
@@ -1190,7 +981,6 @@ def scan_subdomains():
 def logout():
     """
     Logout endpoint (PROTECTED)
-    Invalidates the JWT token by adding it to the blacklist.
     
     Headers:
         Authorization: Bearer <jwt_token>
@@ -1204,19 +994,14 @@ def logout():
     try:
         username = g.user.get('username')
         
-        # Get the token from the request and blacklist it
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            token = auth_header[7:].strip()
-            # Import and use the blacklist function
-            from security_utils import AuthenticationManager
-            AuthenticationManager.blacklist_token(token)
-        
         log_security_event(
             'USER_LOGOUT',
-            f'Username: {username} - Token invalidated',
+            f'Username: {username}',
             'INFO'
         )
+        
+        # In production, you would invalidate the token in a blacklist
+        # For now, we just log the logout
         
         return jsonify({
             'success': True,
@@ -1541,8 +1326,8 @@ if __name__ == '__main__':
     print(f"   ✅ Client Fingerprinting: {'ENABLED' if AdvancedSecurityConfig.ENABLE_FINGERPRINTING else 'DISABLED'}")
     print(f"   ✅ Port Scanning Detection: {'ENABLED' if AdvancedSecurityConfig.DETECT_PORT_SCANNING else 'DISABLED'}")
     print("="*70)
-    print("\n[!] Set credentials via environment variables or credentials.json")
-    print("    See SECURITY.md for setup instructions")
+    print(f"\n🔑 Default Login: {SecurityConfig.ADMIN_USERNAME} / phishing123")
+    print("⚠️  CHANGE PASSWORD IN PRODUCTION!")
     if AdvancedSecurityConfig.WHITELIST_ENABLED:
         print(f"\n🔒 IP Whitelist: {len(AdvancedSecurityConfig.WHITELISTED_IPS)} IPs whitelisted")
         print("   Add your IP to WHITELISTED_IPS in advanced_security.py")

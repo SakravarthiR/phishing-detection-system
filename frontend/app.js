@@ -4,29 +4,10 @@
  * Optimized for low memory environments (Render 512MB)
  */
 
-// Check authentication on page load
-(function checkAuth() {
-    try {
-        const session = localStorage.getItem('phishing_detector_session');
-        if (!session) {
-            console.log('[AUTH] No session, redirecting to login');
-            window.location.href = 'secure-auth-portal.html';
-            return;
-        }
-        const parsed = JSON.parse(session);
-        const now = new Date().getTime();
-        if (now >= parsed.expiry) {
-            console.log('[AUTH] Session expired, redirecting to login');
-            localStorage.removeItem('phishing_detector_session');
-            window.location.href = 'secure-auth-portal.html';
-            return;
-        }
-        console.log('[AUTH] Session valid, user:', parsed.username);
-    } catch (e) {
-        console.error('[AUTH] Error checking session:', e);
-        window.location.href = 'secure-auth-portal.html';
-    }
-})();
+// Redirect to login if not authenticated
+if (typeof isSessionValid === 'function' && !isSessionValid()) {
+    window.location.href = 'secure-auth-portal.html';
+}
 
 
 // Global unhandled promise rejection handler
@@ -197,12 +178,12 @@ function getAPIURL() {
         return 'http://localhost:5000';
     }
     
-    // Production: same-origin (empty for relative URLs)
-    return '';
+    // Production deployment on Render
+    return 'https://phishing-detection-system-1.onrender.com';
 }
 
 const API_BASE_URL = getAPIURL();
-const REQUEST_TIMEOUT = 60000; // 60 seconds for Render cold start
+const REQUEST_TIMEOUT = 30000; // 30 seconds
 const USE_SECURE_API = true; // Use JWT authentication
 
 // OPTIMIZED FOR 50 CONCURRENT USERS
@@ -474,30 +455,14 @@ async function checkPhishing(url) {
             throw new Error(errorMsg);
         }
         
-        // Only parse as JSON if there is content
-        let data = null;
-        const text = await response.text();
-        if (text && text.trim().length > 0) {
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                console.error('Failed to parse JSON:', e, text);
-                throw new Error('Invalid JSON response from server');
-            }
-            console.log('[+] API Response received:', data);
-            return data;
-        } else {
-            throw new Error('Empty response from server');
-        }
+        const data = await response.json();
+        console.log('[+] API Response received:', data);
+        return data;
         
     } catch (error) {
         console.error('Exception caught:', error.name, error.message);
         if (error.name === 'AbortError') {
             throw new Error('Request took too long - please try again');
-        }
-        // Handle network errors (Failed to fetch)
-        if (error.message === 'Failed to fetch') {
-            throw new Error('Network error - check your connection or try again in a moment');
         }
         throw error;
     }
@@ -1229,7 +1194,6 @@ function updateHistoryDisplay() {
         const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
         const historyTableBody = document.getElementById('historyTableBody');
         const historyTableContainer = document.querySelector('.history-table-container');
-        const historySidebar = document.querySelector('.scan-history-sidebar-main');
         
         if (!historyTableBody) return;
         
@@ -1240,17 +1204,17 @@ function updateHistoryDisplay() {
         if (history.length === 0) {
             historyTableBody.innerHTML = '';
             
-            // Hide entire sidebar when no history
-            if (historySidebar) {
-                historySidebar.style.display = 'none';
+            // Show empty state and hide table container
+            if (emptyState) {
+                emptyState.style.display = 'block';
+            }
+            if (historyTableContainer) {
+                historyTableContainer.style.display = 'none';
             }
             return;
         }
         
-        // Show sidebar and table container when history exists
-        if (historySidebar) {
-            historySidebar.style.display = 'block';
-        }
+        // Hide empty state and show table container
         if (emptyState) {
             emptyState.style.display = 'none';
         }
@@ -1382,12 +1346,12 @@ function logout() {
         // Clear session storage completely
         sessionStorage.clear();
         
-        // Redirect to landing page
-        window.location.href = 'index.html';
+        // Redirect to tracking eyes page
+        window.location.href = 'tracking-eyes.html';
     } catch (e) {
         console.error('Logout error:', e);
         // Force redirect anyway
-        window.location.href = 'index.html';
+        window.location.href = 'tracking-eyes.html';
     }
 }
 
